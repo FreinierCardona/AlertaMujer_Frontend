@@ -1,0 +1,60 @@
+## Alerta_Mujer - Proyecto de React Native para la prevención de violencia de género
+
+##### Dependencias #####
+
+# Ignora la carpeta donde se instalan todas las librerias de Node.js
+# Se pueden regenerar con "npm install"
+node_modules/ 
+
+##### Expo - Carpetas de cache y temporales de Expo #####
+
+# Carpetas generadas durante el desarrollo y compilación
+.expo/
+
+# Carpeta de compilación 
+dist/
+web-build/
+
+##### Logs #####
+
+# archivos de error generados por npm y yarn durante el desarrollo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+##### Variables de entorno #####
+
+# variables de entorno con credenciales y configuraciones sensibles
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+##### Sistema operativo #####
+
+# Archivos generados por Windows para miniaturas
+Thumbs.db
+
+##### VSCode #####
+
+# configuraciones y extensiones de VSCode
+.vscode/
+
+
+##### Build #####
+
+# Archivos compilados del proyecto (Se generan automáticamente)
+build/
+coverage/
+
+##### Archivos temporales #####
+
+# archivos temporales generados durante el desarrollo
+*.tmp
+*.temp
+
+##### TypeScript #####
+
+# archivos de configuración y caché de TypeScript
+*.tsbuildinfo
