@@ -11,6 +11,7 @@ import {
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Routes from '@shell/navigation/routes';
+import useAppState from '@shell/providers/useAppState';
 import AppButton from '@shared/ui/AppButton';
 import AppInput from '@shared/ui/AppInput';
 import Colors from '@shared/theme/Colors';
@@ -23,6 +24,7 @@ type LoginField = 'email' | 'password';
 
 export default function LoginScreen() {
   const router = useRouter();
+  const { signIn } = useAppState();
 
   // Estado que almacena el correo electronico ingresado por el usuario.
   const [email, setEmail] = useState('');
@@ -59,6 +61,7 @@ export default function LoginScreen() {
       return;
     }
 
+    signIn(email);
     router.replace(Routes.home);
   }
 
