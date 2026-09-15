@@ -22,7 +22,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="home"
         options={{
-          title: t.navigation.home,
+          title: t("nav.home"),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="shield-outline" color={color} size={size} />
           ),
@@ -31,7 +31,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="contacts"
         options={{
-          title: t.navigation.contacts,
+          title: t("nav.contacts"),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="people-outline" color={color} size={size} />
           ),
@@ -40,7 +40,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="history"
         options={{
-          title: t.navigation.history,
+          title: t("nav.history"),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="time-outline" color={color} size={size} />
           ),
@@ -49,7 +49,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: t.navigation.profile,
+          title: t("nav.profile"),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person-outline" color={color} size={size} />
           ),
