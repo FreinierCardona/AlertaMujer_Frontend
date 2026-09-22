@@ -1,0 +1,3 @@
+import { SafeAreaView, StyleSheet, Text } from 'react-native';
+import { useHistory } from '../../src/modules/history/HistoryProvider';
+export default function History(){const {items}=useHistory();return <SafeAreaView style={s.page}><Text style={s.title}>Historial de alertas</Text>{items.length?items.map(item=><Text key={item.id} style={s.item}>Alerta finalizada · {new Date(item.finishedAt).toLocaleString()}</Text>):<Text style={s.copy}>Aún no hay alertas finalizadas.</Text>}</SafeAreaView>};const s=StyleSheet.create({page:{flex:1,padding:24,gap:12,backgroundColor:'#fff1f2'},title:{fontSize:28,fontWeight:'800',color:'#881337'},copy:{color:'#475569'},item:{padding:12,borderRadius:8,backgroundColor:'#fff',color:'#334155'}});
