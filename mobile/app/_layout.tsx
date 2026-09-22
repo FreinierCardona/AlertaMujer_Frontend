@@ -1,3 +1,4 @@
 import { Stack } from 'expo-router';
 import { AuthProvider } from '../src/modules/auth/AuthProvider';
-export default function Layout(){return <AuthProvider><Stack screenOptions={{headerShown:false}}/></AuthProvider>}
+import { ContactsProvider } from '../src/modules/contacts/ContactsProvider';
+export default function Layout(){return <AuthProvider><ContactsProvider><Stack screenOptions={{headerShown:false}}/></ContactsProvider></AuthProvider>}
