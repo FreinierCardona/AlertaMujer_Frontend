@@ -49,16 +49,63 @@ export function Dashboard() {
   const [selectedStatus, setSelectedStatus] = useState<AlertStatus | "Todas">(
     "Todas",
   );
+  const [selectedAlert, setSelectedAlert] = useState<AlertItem | null>(null);
+  const [alertRows, setAlertRows] = useState(alerts);
 
   // Filtra el conjunto demostrativo para que la consulta responda al estado elegido.
   const visibleAlerts = useMemo(
     () =>
-      alerts.filter(
+      alertRows.filter(
         (alert) =>
           selectedStatus === "Todas" || alert.status === selectedStatus,
       ),
-    [selectedStatus],
+    [alertRows, selectedStatus],
   );
+
+  // Inicia atención sin ofrecer una acción administrativa de finalización.
+  const startAttention = () => {
+    if (!selectedAlert || selectedAlert.status !== "Activa") return;
+    const updatedAlert = { ...selectedAlert, status: "En proceso" as const };
+    setAlertRows((current) =>
+      current.map((alert) =>
+        alert.id === updatedAlert.id ? updatedAlert : alert,
+      ),
+    );
+    setSelectedAlert(updatedAlert);
+  };
+
+  if (selectedAlert) {
+    return (
+      <section className="panel-card">
+        <button type="button" onClick={() => setSelectedAlert(null)}>
+          Volver al panel
+        </button>
+        <p className="eyebrow">Detalle de alerta {selectedAlert.id}</p>
+        <h1>{selectedAlert.user}</h1>
+        <p>
+          <span className="status-badge">{selectedAlert.status}</span>
+        </p>
+        <p>
+          <strong>Inicio:</strong> {selectedAlert.startedAt}
+        </p>
+        <p>
+          <strong>Última ubicación confirmada:</strong> {selectedAlert.location}
+        </p>
+        <div className="map-placeholder">
+          Ubicación confirmada: {selectedAlert.location}
+        </div>
+        {selectedAlert.status === "Activa" ? (
+          <button type="button" onClick={startAttention}>
+            Iniciar atención
+          </button>
+        ) : null}
+        <p>
+          La finalización solo puede ser realizada por la usuaria desde la
+          aplicación móvil.
+        </p>
+      </section>
+    );
+  }
 
   return (
     <div>
@@ -82,7 +129,7 @@ export function Dashboard() {
           >
             <span>{status}</span>
             <strong>
-              {alerts.filter((alert) => alert.status === status).length}
+              {alertRows.filter((alert) => alert.status === status).length}
             </strong>
           </button>
         ))}
@@ -121,7 +168,7 @@ export function Dashboard() {
               </thead>
               <tbody>
                 {visibleAlerts.map((alert) => (
-                  <tr key={alert.id}>
+                  <tr key={alert.id} onClick={() => setSelectedAlert(alert)}>
                     <td>
                       <span className="status-badge">{alert.status}</span>
                     </td>
