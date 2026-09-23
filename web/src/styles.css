@@ -131,6 +131,61 @@ button:disabled {
   margin: auto;
   padding: 24px;
 }
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 14px;
+}
+.summary-card {
+  display: grid;
+  gap: 8px;
+  text-align: left;
+  background: #9f1239;
+}
+.summary-card strong {
+  font-size: 30px;
+}
+.panel-card {
+  overflow-x: auto;
+}
+.table-header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+}
+.table-header label {
+  display: grid;
+  gap: 6px;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+th,
+td {
+  padding: 12px 8px;
+  text-align: left;
+  border-bottom: 1px solid #fed7e2;
+}
+.status-badge,
+.cell-meta {
+  display: block;
+}
+.status-badge {
+  width: fit-content;
+  border-radius: 999px;
+  padding: 4px 8px;
+  color: #881337;
+  background: #fce7f3;
+  font-size: 12px;
+  font-weight: bold;
+}
+.cell-meta {
+  margin-top: 4px;
+  color: #6b7280;
+  font-size: 12px;
+}
 .menu-button,
 .admin-brand > button,
 .admin-backdrop {
