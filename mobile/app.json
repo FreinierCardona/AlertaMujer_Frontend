@@ -1,1 +1,10 @@
-{ "expo": { "name": "AlertaMujer", "slug": "alertamujer-mobile", "version": "1.0.0", "orientation": "portrait", "scheme": "alertamujer", "plugins": ["expo-router"] } }
+{
+  "expo": {
+    "name": "AlertaMujer",
+    "slug": "alertamujer-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "alertamujer",
+    "plugins": ["expo-router"]
+  }
+}
