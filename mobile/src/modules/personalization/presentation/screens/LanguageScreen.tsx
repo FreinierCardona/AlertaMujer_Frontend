@@ -1,4 +1,4 @@
-// Cambia inmediatamente entre español e inglés y persiste la selección.
+// Cambia inmediatamente el idioma y persiste la selección.
 import { Pressable, StyleSheet, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AppScreen from '@shared/ui/AppScreen';
@@ -13,6 +13,8 @@ export default function LanguageScreen() {
   const options: { value: AppLanguage; label: string }[] = [
     { value: 'es', label: t('language.spanish') },
     { value: 'en', label: t('language.english') },
+    { value: 'pt', label: t('language.portuguese') },
+    { value: 'fr', label: t('language.french') },
   ];
   return (
     <AppScreen>

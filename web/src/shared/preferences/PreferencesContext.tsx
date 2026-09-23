@@ -31,7 +31,7 @@ function readPreference<T extends string>(
 
 export function PreferencesProvider({ children }: { children: ReactNode }) {
   const [language, setLanguage] = useState<Language>(() =>
-    readPreference('am.language', ['es', 'en'], 'es'),
+    readPreference('am.language', ['es', 'en', 'pt', 'fr'], 'es'),
   );
   const [theme, setTheme] = useState<ThemeMode>(() =>
     readPreference('am.theme', ['light', 'dark'], 'light'),

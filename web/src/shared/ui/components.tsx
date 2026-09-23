@@ -41,7 +41,7 @@ export function Logo({ compact = false }: { compact?: boolean }) {
   return (
     <span className="brand">
       <img
-        src="/logo-alertamujer.jpeg"
+        src="/logo-alertamujer.png"
         alt=""
       />
       <span>{compact ? t('adminBrand') : t('brand')}</span>
@@ -62,10 +62,14 @@ export function PreferenceControls({ compact = false }: { compact?: boolean }) {
         <select
           aria-label={t('language')}
           value={language}
-          onChange={(event) => setLanguage(event.target.value as 'es' | 'en')}
+          onChange={(event) =>
+            setLanguage(event.target.value as 'es' | 'en' | 'pt' | 'fr')
+          }
         >
           <option value="es">ES</option>
           <option value="en">EN</option>
+          <option value="pt">PT</option>
+          <option value="fr">FR</option>
         </select>
       </label>
       <button

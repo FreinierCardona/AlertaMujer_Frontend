@@ -49,6 +49,17 @@ const featureItems: {
   { icon: 'phone', title: 'authorityCall', text: 'authorityText' },
 ];
 
+const emergencyFlow: { icon: IconName; label: Parameters<ReturnType<typeof usePreferences>['t']>[0] }[] = [
+  { icon: 'alert', label: 'flowActivate' },
+  { icon: 'users', label: 'flowContacts' },
+  { icon: 'shield', label: 'flowAdmin' },
+  { icon: 'mapPin', label: 'flowLocation' },
+  { icon: 'camera', label: 'flowEvidence' },
+  { icon: 'chat', label: 'flowChat' },
+  { icon: 'eye', label: 'flowResponse' },
+  { icon: 'check', label: 'flowFinish' },
+];
+
 export function PublicHome() {
   const { t } = usePreferences();
   return (
@@ -131,6 +142,36 @@ export function PublicHome() {
             <h2>{t('projectTitle')}</h2>
           </div>
           <p>{t('projectText')}</p>
+        </div>
+      </section>
+      <section className="section-wrap emergency-flow" aria-labelledby="emergency-flow-title">
+        <header className="section-heading emergency-flow__heading">
+          <p className="eyebrow">{t('flowEyebrow')}</p>
+          <h2 id="emergency-flow-title">{t('flowTitle')}</h2>
+          <p>{t('flowIntro')}</p>
+        </header>
+        <div className="emergency-flow__journey">
+          <ol className="emergency-flow__track">
+            {emergencyFlow.map((step, index) => (
+              <li
+                className={`emergency-flow__step emergency-flow__step--${index + 1}`}
+                key={step.label}
+              >
+                <span className="emergency-flow__number" aria-hidden="true">
+                  {String(index + 1).padStart(2, '0')}
+                </span>
+                <span className="emergency-flow__icon" aria-hidden="true">
+                  <Icon name={step.icon} size={24} />
+                </span>
+                <strong>{t(step.label)}</strong>
+                {index < emergencyFlow.length - 1 && (
+                  <span className="emergency-flow__arrow" aria-hidden="true">
+                    <Icon name="chevronRight" size={18} />
+                  </span>
+                )}
+              </li>
+            ))}
+          </ol>
         </div>
       </section>
       <section className="section-wrap home-features">
@@ -296,7 +337,7 @@ export function DownloadPage() {
         <article className="apk-card">
           <div className="apk-card__brand">
             <img
-              src="/logo-alertamujer.jpeg"
+              src="/logo-alertamujer.png"
               alt=""
             />
             <div>

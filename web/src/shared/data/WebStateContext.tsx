@@ -120,7 +120,7 @@ export function WebStateProvider({ children }: { children: ReactNode }) {
     if (normalizedEmail === 'usuaria@alertamujer.org') return 'unauthorized';
     if (
       normalizedEmail !== 'cardonafreinier@gmail.com' ||
-      password !== '29052009Fs.'
+      password !== '1234567890Fs.'
     )
       return 'invalid';
 

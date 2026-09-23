@@ -16,17 +16,22 @@
     />
     <link
       rel="icon"
-      href="/logo-alertamujer.jpeg"
+      href="/logo-alertamujer.png"
     />
     <title>AlertaMujer</title>
   </head>
   <body>
     <div id="root"></div>
     <script>
+      const savedTheme = localStorage.getItem('am.theme');
+      const savedLanguage = localStorage.getItem('am.language');
       document.documentElement.dataset.theme =
-        localStorage.getItem('am.theme') === 'dark' ? 'dark' : 'light';
-      document.documentElement.lang =
-        localStorage.getItem('am.language') === 'en' ? 'en' : 'es';
+        savedTheme === 'light' || savedTheme === 'dark' ? savedTheme : 'light';
+      document.documentElement.lang = ['es', 'en', 'pt', 'fr'].includes(
+        savedLanguage,
+      )
+        ? savedLanguage
+        : 'es';
     </script>
     <script
       type="module"

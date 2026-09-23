@@ -24,7 +24,7 @@ export default function AppButton({
   textStyle,
   accessibilityHint,
 }: Props) {
-  const { colors, typography } = useAppTheme();
+  const { colors, resolvedMode, typography } = useAppTheme();
   const backgrounds = {
     primary: colors.primary,
     outline: 'transparent',
@@ -32,7 +32,7 @@ export default function AppButton({
     ghost: 'transparent',
   };
   const foregrounds = {
-    primary: colors.textWhite,
+    primary: resolvedMode === 'dark' ? '#241326' : colors.textWhite,
     outline: colors.primary,
     danger: colors.textWhite,
     ghost: colors.textDark,

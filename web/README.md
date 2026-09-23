@@ -1,7 +1,6 @@
-<!-- Explica cómo ejecutar y recorrer el frontend web de AlertaMujer. -->
-# Frontend web de AlertaMujer
+# AlertaMujer Web
 
-Aplicación React + TypeScript para el sitio público y el panel administrativo.
+Aplicación React + TypeScript para el sitio público y el panel administrativo de AlertaMujer.
 
 ## Ejecución
 
@@ -10,25 +9,23 @@ npm install
 npm run dev
 ```
 
-Validaciones disponibles:
+## Validación
 
 ```bash
 npm run typecheck
 npm run lint
 npm run build
+npm run test:e2e
 ```
 
-## Acceso administrativo
+## Rutas
 
-- Correo: `admin@alertamujer.org`
-- Contraseña: `Alerta2026!`
-
-Los formularios también contemplan credenciales inválidas, cuenta inhabilitada, rol no autorizado, error de servicio y sesión expirada. Las preferencias, filtros y cambios confirmados se conservan en el almacenamiento del navegador.
-
-## Rutas principales
-
-- Públicas: `/`, `/funciones`, `/seguridad`, `/descargar`.
+- Públicas: `/`, `/funciones`, `/seguridad` y `/descargar`.
 - Acceso: `/admin/login`.
-- Panel: `/admin/dashboard`, `/admin/alertas`, `/admin/usuarias`, `/admin/auditoria`.
+- Administración: `/admin/dashboard`, `/admin/alertas`, `/admin/usuarias` y `/admin/auditoria`.
 
-Los estados alternos de consulta se verifican con `?view=loading`, `?view=empty`, `?view=error`, `?view=partial` o `?view=denied`, según la pantalla. La disponibilidad Android usa `?state=preparing`, `?state=unavailable`, `?state=error` y la variante estructural `?state=available`; el archivo de descarga permanece deshabilitado mientras no exista un artefacto publicado.
+## Alcance
+
+El sitio público informa sobre la solución y guía el flujo visual de emergencia. El panel administrativo permite consultar y gestionar alertas conforme a los permisos de la interfaz. Las preferencias, filtros y cambios de demostración se conservan localmente en el navegador; no hay backend ni APK publicada en este repositorio.
+
+Para la demostración administrativa use `cardonafreinier@gmail.com` / `1234567890Fs.`.

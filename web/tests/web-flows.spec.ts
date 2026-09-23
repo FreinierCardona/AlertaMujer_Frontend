@@ -14,7 +14,7 @@ async function login(page: Page) {
   await page
     .getByLabel('Correo electrónico')
     .fill('cardonafreinier@gmail.com');
-  await page.getByLabel('Contraseña', { exact: true }).fill('29052009Fs.');
+  await page.getByLabel('Contraseña', { exact: true }).fill('1234567890Fs.');
   await page.getByRole('button', { name: 'Iniciar sesión' }).click();
   await expect(page).toHaveURL(/\/admin\/dashboard$/);
 }
@@ -33,9 +33,11 @@ test.afterEach(async ({ page }) => {
   expect(runtimeErrors.get(page) ?? []).toEqual([]);
 });
 
-test('conserva modo oscuro e idioma al navegar por público y acceso', async ({
+test('inicia en español y claro, y conserva preferencias al navegar', async ({
   page,
 }) => {
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  await expect(page.locator('html')).toHaveAttribute('lang', 'es');
   await page.locator('.theme-toggle').click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   await page.getByRole('link', { name: 'Funciones', exact: true }).click();
@@ -57,6 +59,35 @@ test('conserva modo oscuro e idioma al navegar por público y acceso', async ({
     page.getByRole('heading', { name: 'Administrative sign in' }),
   ).toBeVisible();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+});
+
+test('traduce portugués y francés y muestra el flujo de emergencia', async ({
+  page,
+}) => {
+  await expect(
+    page.getByRole('heading', {
+      name: 'Una ruta de atención clara',
+    }),
+  ).toBeVisible();
+  await expect(page.locator('.emergency-flow__step')).toHaveCount(8);
+
+  await page.locator('.select-control select').selectOption('pt');
+  await expect(page.locator('html')).toHaveAttribute('lang', 'pt');
+  await expect(
+    page.getByRole('heading', {
+      name: 'Um caminho claro de atendimento',
+    }),
+  ).toBeVisible();
+
+  await page.locator('.select-control select').selectOption('fr');
+  await expect(page.locator('html')).toHaveAttribute('lang', 'fr');
+  await expect(
+    page.getByRole('heading', {
+      name: 'Un parcours de prise en charge clair',
+    }),
+  ).toBeVisible();
+  await page.reload();
+  await expect(page.locator('.select-control select')).toHaveValue('fr');
 });
 
 test('muestra validaciones y estados de acceso antes del login correcto', async ({
@@ -94,7 +125,7 @@ test('muestra validaciones y estados de acceso antes del login correcto', async 
   await page
     .getByLabel('Correo electrónico')
     .fill('cardonafreinier@gmail.com');
-  await page.getByLabel('Contraseña', { exact: true }).fill('29052009Fs.');
+  await page.getByLabel('Contraseña', { exact: true }).fill('1234567890Fs.');
   await page.getByRole('button', { name: 'Iniciar sesión' }).click();
   await expect(page).toHaveURL(/\/admin\/dashboard$/);
 });
@@ -216,7 +247,7 @@ test('resuelve guarda de ruta, conflicto, fallo de chat y regla de inactividad',
   await page
     .getByLabel('Correo electrónico')
     .fill('cardonafreinier@gmail.com');
-  await page.getByLabel('Contraseña', { exact: true }).fill('29052009Fs.');
+  await page.getByLabel('Contraseña', { exact: true }).fill('1234567890Fs.');
   await page.getByRole('button', { name: 'Iniciar sesión' }).click();
   await expect(page).toHaveURL(/\/admin\/alertas$/);
   await page.goto('/admin/alertas/A-1044');
@@ -276,7 +307,7 @@ test('mantiene navegación y formularios utilizables en ancho reducido', async (
   await page
     .getByLabel('Correo electrónico')
     .fill('cardonafreinier@gmail.com');
-  await page.getByLabel('Contraseña', { exact: true }).fill('29052009Fs.');
+  await page.getByLabel('Contraseña', { exact: true }).fill('1234567890Fs.');
   await page.getByRole('button', { name: 'Iniciar sesión' }).click();
   await page.getByRole('button', { name: 'Abrir menú' }).click();
   await page.getByRole('link', { name: 'Usuarias' }).click();
