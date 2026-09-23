@@ -31,7 +31,7 @@ export default function LoginScreen() {
     <AppScreen>
       <View style={styles.brand}>
         <Image
-          source={require('../../../../../assets/images/Logo-AlertaMujer.jpeg')}
+          source={require('../../../../../assets/images/Logo-AlertaMujer-clean.png')}
           resizeMode="contain"
           style={styles.logo}
         />

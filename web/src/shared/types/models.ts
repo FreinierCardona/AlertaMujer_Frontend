@@ -1,5 +1,5 @@
 // Define los modelos simples compartidos por las pantallas del frontend web.
-export type Language = 'es' | 'en';
+export type Language = 'es' | 'en' | 'pt' | 'fr';
 export type ThemeMode = 'light' | 'dark';
 export type AlertStatus = 'active' | 'inProgress' | 'offline' | 'finished';
 export type AccountStatus = 'enabled' | 'disabled' | 'deleted';

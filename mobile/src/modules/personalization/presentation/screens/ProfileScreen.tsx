@@ -34,6 +34,12 @@ export default function ProfileScreen() {
   const { language, t } = useI18n();
   const { mode, colors, spacing, typography } = useAppTheme();
   const [logout, setLogout] = useState(false);
+  const languageLabels = {
+    es: t('language.spanish'),
+    en: t('language.english'),
+    pt: t('language.portuguese'),
+    fr: t('language.french'),
+  };
   const options: ProfileOption[] = [
     {
       icon: 'create-outline',
@@ -48,7 +54,7 @@ export default function ProfileScreen() {
     {
       icon: 'language-outline',
       label: t('profile.language'),
-      value: language === 'es' ? t('language.spanish') : t('language.english'),
+      value: languageLabels[language],
       route: Routes.language,
     },
     {
