@@ -1,3 +1,34 @@
-import * as Location from 'expo-location';
-export type LocationResult={latitude:number;longitude:number;timestamp:number};
-export async function requestAndReadLocation():Promise<{result?:LocationResult;error?:string}>{const foreground=await Location.requestForegroundPermissionsAsync();if(foreground.status!=='granted')return {error:'El permiso de ubicación es necesario para preparar una alerta SOS.'};try{const point=await Location.getCurrentPositionAsync({accuracy:Location.Accuracy.High});return {result:{latitude:point.coords.latitude,longitude:point.coords.longitude,timestamp:point.timestamp}}}catch{return {error:'No fue posible obtener coordenadas GPS. Verifica ubicación y conexión.'}}}
+import * as Location from "expo-location";
+export type LocationResult = {
+  latitude: number;
+  longitude: number;
+  timestamp: number;
+};
+export async function requestAndReadLocation(): Promise<{
+  result?: LocationResult;
+  error?: string;
+}> {
+  const foreground = await Location.requestForegroundPermissionsAsync();
+  if (foreground.status !== "granted")
+    return {
+      error:
+        "El permiso de ubicación es necesario para preparar una alerta SOS.",
+    };
+  try {
+    const point = await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.High,
+    });
+    return {
+      result: {
+        latitude: point.coords.latitude,
+        longitude: point.coords.longitude,
+        timestamp: point.timestamp,
+      },
+    };
+  } catch {
+    return {
+      error:
+        "No fue posible obtener coordenadas GPS. Verifica ubicación y conexión.",
+    };
+  }
+}
