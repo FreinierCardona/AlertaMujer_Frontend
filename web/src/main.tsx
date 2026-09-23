@@ -1,12 +1,14 @@
-// Arranca la aplicación web y habilita sus preferencias globales.
-import { createRoot } from "react-dom/client";
-import "./styles.css";
-import { PublicSite } from "./modules/public/PublicSite";
-import { PreferencesProvider } from "./shared/preferences/PreferencesProvider";
+// Inicializa React y monta la aplicación web en el documento principal.
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import App from './app/App';
+import './index.css';
 
-// Inicializa el sitio con las preferencias disponibles para módulos públicos y administrativos.
-createRoot(document.getElementById("root")!).render(
-  <PreferencesProvider>
-    <PublicSite />
-  </PreferencesProvider>,
+const root = document.getElementById('root');
+if (!root) throw new Error('Root element not found');
+
+createRoot(root).render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
 );

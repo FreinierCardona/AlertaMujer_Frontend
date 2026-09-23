@@ -1,2 +1,41 @@
-<div id="root"></div>
-<script type="module" src="/src/main.tsx"></script>
+<!-- Define el documento base, metadatos y punto de montaje del frontend web. -->
+<!doctype html>
+<html
+  lang="es"
+  data-theme="light"
+>
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+    />
+    <meta
+      name="theme-color"
+      content="#a20c8c"
+    />
+    <link
+      rel="icon"
+      href="/logo-alertamujer.png"
+    />
+    <title>AlertaMujer</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>
+      const savedTheme = localStorage.getItem('am.theme');
+      const savedLanguage = localStorage.getItem('am.language');
+      document.documentElement.dataset.theme =
+        savedTheme === 'light' || savedTheme === 'dark' ? savedTheme : 'light';
+      document.documentElement.lang = ['es', 'en', 'pt', 'fr'].includes(
+        savedLanguage,
+      )
+        ? savedLanguage
+        : 'es';
+    </script>
+    <script
+      type="module"
+      src="/src/main.tsx"
+    ></script>
+  </body>
+</html>
