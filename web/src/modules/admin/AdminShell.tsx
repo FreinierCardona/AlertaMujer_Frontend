@@ -19,16 +19,10 @@ export function AdminShell({ children, onSignOut }: AdminShellProps) {
 
   return (
     <div className="admin-shell">
-      <aside
-        className={isMenuOpen ? "admin-sidebar is-open" : "admin-sidebar"}
-      >
+      <aside className={isMenuOpen ? "admin-sidebar is-open" : "admin-sidebar"}>
         <div className="admin-brand">
           <strong>AlertaMujer</strong>
-          <button
-            type="button"
-            onClick={closeMenu}
-            aria-label="Cerrar menú"
-          >
+          <button type="button" onClick={closeMenu} aria-label="Cerrar menú">
             ×
           </button>
         </div>
@@ -46,11 +40,7 @@ export function AdminShell({ children, onSignOut }: AdminShellProps) {
             Auditoría
           </button>
         </nav>
-        <button
-          className="sign-out"
-          type="button"
-          onClick={onSignOut}
-        >
+        <button className="sign-out" type="button" onClick={onSignOut}>
           Cerrar sesión
         </button>
       </aside>
@@ -95,9 +85,7 @@ export function AdminShell({ children, onSignOut }: AdminShellProps) {
               {theme === "light" ? "Modo oscuro" : "Modo claro"}
             </button>
           </div>
-          <span className="operator-profile">
-            Operador administrativo
-          </span>
+          <span className="operator-profile">Operador administrativo</span>
         </header>
         <main className="admin-content">{children}</main>
       </div>
