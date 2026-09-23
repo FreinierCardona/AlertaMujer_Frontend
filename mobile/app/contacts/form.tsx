@@ -1,3 +1,4 @@
+// Crea o actualiza un contacto de emergencia con las validaciones del formulario.
 import { useLocalSearchParams, router } from "expo-router";
 import {
   Pressable,

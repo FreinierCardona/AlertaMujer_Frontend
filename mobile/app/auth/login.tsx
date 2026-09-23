@@ -1,3 +1,4 @@
+// Valida el acceso de la usuaria y la dirige al inicio al completar el formulario.
 import { Link, router } from "expo-router";
 import { useState } from "react";
 import {

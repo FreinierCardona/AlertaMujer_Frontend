@@ -1,3 +1,4 @@
+// Permite elegir el idioma visual y conservarlo entre sesiones locales.
 import { router } from "expo-router";
 import { Pressable, SafeAreaView, StyleSheet, Text } from "react-native";
 import {

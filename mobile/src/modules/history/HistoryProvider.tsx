@@ -1,3 +1,4 @@
+// Registra en memoria las alertas finalizadas para mostrarlas en el historial local.
 import { createContext, useContext, useState, type ReactNode } from "react";
 type Item = { id: string; startedAt: number; finishedAt: number };
 const C = createContext<{ items: Item[]; add: () => void } | null>(null);

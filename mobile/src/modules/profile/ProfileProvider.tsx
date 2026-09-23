@@ -1,3 +1,4 @@
+// Gestiona los datos del perfil y el mensaje de ayuda almacenados localmente.
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   createContext,

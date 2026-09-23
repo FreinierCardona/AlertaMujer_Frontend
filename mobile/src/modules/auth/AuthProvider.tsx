@@ -1,3 +1,4 @@
+// Gestiona el registro, inicio y cierre de sesión demostrativos con persistencia local.
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   createContext,

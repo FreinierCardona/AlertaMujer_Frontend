@@ -1,3 +1,4 @@
+// Solicita permisos y obtiene una imagen desde la cámara o la galería del dispositivo.
 import * as ImagePicker from "expo-image-picker";
 export async function pickEvidence(camera: boolean) {
   const permission = camera

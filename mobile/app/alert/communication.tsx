@@ -1,3 +1,4 @@
+// Permite contactar a autoridades o a los contactos registrados durante una alerta activa.
 import { useState } from "react";
 import {
   Linking,

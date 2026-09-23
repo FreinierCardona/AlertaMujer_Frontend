@@ -1,3 +1,4 @@
+// Compone los proveedores globales y el enrutamiento de la aplicación móvil.
 import { Stack } from "expo-router";
 import { AuthProvider } from "../src/modules/auth/AuthProvider";
 import { ContactsProvider } from "../src/modules/contacts/ContactsProvider";

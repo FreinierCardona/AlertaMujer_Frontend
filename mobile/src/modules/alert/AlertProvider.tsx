@@ -1,3 +1,4 @@
+// Mantiene el ciclo de vida de la alerta SOS mientras la aplicación está abierta.
 import { createContext, useContext, useState, type ReactNode } from "react";
 type Alert = {
   active: boolean;

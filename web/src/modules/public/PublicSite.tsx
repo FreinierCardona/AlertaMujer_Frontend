@@ -1,4 +1,6 @@
+// Reúne el sitio público y el acceso local de demostración del operador.
 import { useState } from "react";
+import { AdminShell } from "../admin/AdminShell";
 
 /**
  * Presenta la información pública y permite validar localmente el acceso
@@ -10,7 +12,7 @@ export function PublicSite() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
-  // Valida el formulario visual; la autenticación remota se integrará después.
+  // Valida el formulario de demostración; la autenticación remota se integrará después.
   const signIn = () => {
     if (!email.includes("@") || password.length < 8) {
       setError("Ingresa correo y una contraseña de al menos 8 caracteres.");
@@ -19,17 +21,20 @@ export function PublicSite() {
     setIsAdmin(true);
   };
 
+  // Cambia al contenedor protegido una vez que el operador supera la validación local.
   if (isAdmin) {
     return (
-      <main>
-        <header>
-          <b>AlertaMujer · Administración</b>
-        </header>
+      <AdminShell onSignOut={() => setIsAdmin(false)}>
         <section>
-          <h1>Sesión de operador iniciada</h1>
-          <p>El panel administrativo se incorpora en la siguiente HU.</p>
+          <p>Administración</p>
+          <h1>Panel del operador</h1>
+          <p>
+            La estructura administrativa, el menú responsivo y las preferencias
+            se encuentran disponibles. Los datos operativos se incorporan en las
+            siguientes historias de usuario.
+          </p>
         </section>
-      </main>
+      </AdminShell>
     );
   }
   return (

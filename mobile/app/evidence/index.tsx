@@ -1,3 +1,4 @@
+// Captura o selecciona una evidencia fotográfica asociada a la alerta activa.
 import { useState } from "react";
 import { Image, Pressable, SafeAreaView, StyleSheet, Text } from "react-native";
 import { pickEvidence } from "../../src/modules/evidence/evidenceService";

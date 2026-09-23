@@ -1,3 +1,4 @@
+// Solicita el correo para iniciar el flujo local de recuperación de contraseña.
 import { Link, router } from "expo-router";
 import { useState } from "react";
 import {

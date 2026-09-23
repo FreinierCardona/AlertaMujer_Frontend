@@ -1,3 +1,4 @@
+// Verifica el código temporal antes de habilitar el cambio de contraseña.
 import { router } from "expo-router";
 import { useState } from "react";
 import {

@@ -1,3 +1,4 @@
+// Presenta una alerta en curso y concentra las acciones permitidas durante la emergencia.
 import { Pressable, SafeAreaView, StyleSheet, Text } from "react-native";
 import { useAlert } from "../../src/modules/alert/AlertProvider";
 import { useHistory } from "../../src/modules/history/HistoryProvider";

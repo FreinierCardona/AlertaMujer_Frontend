@@ -1,3 +1,4 @@
+// Muestra el historial local de alertas que ya fueron finalizadas por la usuaria.
 import { SafeAreaView, StyleSheet, Text } from "react-native";
 import { useHistory } from "../../src/modules/history/HistoryProvider";
 export default function History() {

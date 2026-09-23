@@ -1,3 +1,4 @@
+// Decide la ruta de entrada según la restauración de la sesión local.
 import { Redirect } from "expo-router";
 import { ActivityIndicator, View } from "react-native";
 import { useAuth } from "../src/modules/auth/AuthProvider";

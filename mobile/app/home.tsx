@@ -1,3 +1,4 @@
+// Centraliza los accesos principales y protege la navegación ante una alerta activa.
 import { router } from "expo-router";
 import { useEffect } from "react";
 import { Pressable, SafeAreaView, StyleSheet, Text } from "react-native";

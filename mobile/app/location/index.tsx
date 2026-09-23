@@ -1,3 +1,4 @@
+// Gestiona permisos y muestra la última coordenada GPS disponible en el dispositivo.
 import { useState } from "react";
 import { Pressable, SafeAreaView, StyleSheet, Text } from "react-native";
 import { router } from "expo-router";

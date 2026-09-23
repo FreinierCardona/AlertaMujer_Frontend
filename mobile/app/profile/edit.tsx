@@ -1,3 +1,4 @@
+// Edita los datos visibles del perfil y persiste los cambios en el estado local.
 import { router } from "expo-router";
 import { useState } from "react";
 import {

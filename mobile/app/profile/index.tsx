@@ -1,3 +1,4 @@
+// Agrupa los accesos de configuración y los datos resumidos del perfil de la usuaria.
 import { router } from "expo-router";
 import { Pressable, SafeAreaView, StyleSheet, Text, View } from "react-native";
 import { useProfile } from "../../src/modules/profile/ProfileProvider";

@@ -1,3 +1,4 @@
+// Conserva las preferencias visuales y de idioma para toda la aplicación móvil.
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   createContext,
