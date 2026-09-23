@@ -23,7 +23,11 @@ const PreferencesContext = createContext<PreferencesContextValue | null>(null);
 /**
  * Obtiene una preferencia válida del navegador y evita propagar valores corruptos.
  */
-function readPreference<T extends string>(key: string, fallback: T, options: T[]): T {
+function readPreference<T extends string>(
+  key: string,
+  fallback: T,
+  options: T[],
+): T {
   const value = window.localStorage.getItem(key) as T | null;
 
   return value && options.includes(value) ? value : fallback;
@@ -70,7 +74,9 @@ export function usePreferences() {
   const value = useContext(PreferencesContext);
 
   if (!value) {
-    throw new Error("PreferencesProvider es obligatorio para usar preferencias.");
+    throw new Error(
+      "PreferencesProvider es obligatorio para usar preferencias.",
+    );
   }
 
   return value;

@@ -1,6 +1,7 @@
 // Reúne el sitio público y el acceso local de demostración del operador.
 import { useState } from "react";
 import { AdminShell } from "../admin/AdminShell";
+import { Dashboard } from "../admin/Dashboard";
 
 /**
  * Presenta la información pública y permite validar localmente el acceso
@@ -25,15 +26,7 @@ export function PublicSite() {
   if (isAdmin) {
     return (
       <AdminShell onSignOut={() => setIsAdmin(false)}>
-        <section>
-          <p>Administración</p>
-          <h1>Panel del operador</h1>
-          <p>
-            La estructura administrativa, el menú responsivo y las preferencias
-            se encuentran disponibles. Los datos operativos se incorporan en las
-            siguientes historias de usuario.
-          </p>
-        </section>
+        <Dashboard />
       </AdminShell>
     );
   }
