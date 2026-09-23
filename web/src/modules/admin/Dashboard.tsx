@@ -51,6 +51,10 @@ export function Dashboard() {
   );
   const [selectedAlert, setSelectedAlert] = useState<AlertItem | null>(null);
   const [alertRows, setAlertRows] = useState(alerts);
+  const [messages, setMessages] = useState<string[]>([
+    "Operador: Recibimos tu alerta. Permanece en un lugar visible si es seguro.",
+  ]);
+  const [draftMessage, setDraftMessage] = useState("");
 
   // Filtra el conjunto demostrativo para que la consulta responda al estado elegido.
   const visibleAlerts = useMemo(
@@ -74,6 +78,14 @@ export function Dashboard() {
     setSelectedAlert(updatedAlert);
   };
 
+  // Agrega el mensaje del operador solo al contexto de la alerta que está abierta.
+  const sendMessage = () => {
+    const message = draftMessage.trim();
+    if (!message) return;
+    setMessages((current) => [...current, `Operador: ${message}`]);
+    setDraftMessage("");
+  };
+
   if (selectedAlert) {
     return (
       <section className="panel-card">
@@ -94,6 +106,38 @@ export function Dashboard() {
         <div className="map-placeholder">
           Ubicación confirmada: {selectedAlert.location}
         </div>
+        <section className="detail-section">
+          <h2>Evidencias recibidas</h2>
+          <div className="evidence-grid">
+            <div className="evidence-item">Fotografía de entorno urbano</div>
+            <div className="evidence-item">
+              Fotografía de ubicación reportada
+            </div>
+          </div>
+        </section>
+        <section className="detail-section">
+          <h2>Comunicación con la usuaria</h2>
+          <div className="message-list">
+            {messages.map((message) => (
+              <p key={message}>{message}</p>
+            ))}
+          </div>
+          <label>
+            Mensaje del operador
+            <textarea
+              value={draftMessage}
+              onChange={(event) => setDraftMessage(event.target.value)}
+              placeholder="Escribe una indicación segura"
+            />
+          </label>
+          <button
+            type="button"
+            onClick={sendMessage}
+            disabled={!draftMessage.trim()}
+          >
+            Enviar mensaje
+          </button>
+        </section>
         {selectedAlert.status === "Activa" ? (
           <button type="button" onClick={startAttention}>
             Iniciar atención

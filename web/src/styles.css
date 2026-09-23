@@ -186,6 +186,31 @@ td {
   color: #6b7280;
   font-size: 12px;
 }
+.detail-section {
+  margin-top: 20px;
+  padding: 18px;
+  border: 1px solid #fed7e2;
+}
+.map-placeholder,
+.evidence-item,
+.message-list {
+  margin-top: 12px;
+  padding: 16px;
+  border-radius: 10px;
+  background: #fff1f2;
+}
+.evidence-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+.detail-section textarea {
+  display: block;
+  width: 100%;
+  min-height: 90px;
+  margin: 8px 0;
+  padding: 10px;
+}
 .menu-button,
 .admin-brand > button,
 .admin-backdrop {
