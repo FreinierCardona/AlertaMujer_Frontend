@@ -1,0 +1,4 @@
+# Excluye dependencias y artefactos reproducibles del frontend web.
+node_modules/
+dist/
+*.tsbuildinfo

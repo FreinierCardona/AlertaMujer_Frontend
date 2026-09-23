@@ -1,3 +1,4 @@
+// Establece una nueva contraseña después de validar el código de recuperación.
 import { router } from "expo-router";
 import { useState } from "react";
 import {

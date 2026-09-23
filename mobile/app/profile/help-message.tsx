@@ -1,3 +1,4 @@
+// Personaliza el mensaje que acompaña las alertas enviadas a los contactos.
 import { router } from "expo-router";
 import { useState } from "react";
 import {
