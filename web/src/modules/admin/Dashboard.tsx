@@ -55,6 +55,27 @@ export function Dashboard() {
     "Operador: Recibimos tu alerta. Permanece en un lugar visible si es seguro.",
   ]);
   const [draftMessage, setDraftMessage] = useState("");
+  const [users, setUsers] = useState([
+    {
+      id: "U-1024",
+      name: "María Jiménez Pérez",
+      email: "maria.jimenez@example.com",
+      status: "Habilitada",
+    },
+    {
+      id: "U-1012",
+      name: "Laura Martínez",
+      email: "laura.martinez@example.com",
+      status: "Habilitada",
+    },
+    {
+      id: "U-1008",
+      name: "Ana Ramírez",
+      email: "ana.ramirez@example.com",
+      status: "Inhabilitada",
+    },
+  ]);
+  const [userSearch, setUserSearch] = useState("");
 
   // Filtra el conjunto demostrativo para que la consulta responda al estado elegido.
   const visibleAlerts = useMemo(
@@ -86,68 +107,141 @@ export function Dashboard() {
     setDraftMessage("");
   };
 
+  // Filtra usuarias por nombre o correo sin alterar el conjunto almacenado en pantalla.
+  const visibleUsers = users.filter((user) =>
+    `${user.name} ${user.email}`
+      .toLowerCase()
+      .includes(userSearch.toLowerCase()),
+  );
+
+  const toggleUserStatus = (userId: string) => {
+    setUsers((current) =>
+      current.map((user) =>
+        user.id === userId
+          ? {
+              ...user,
+              status:
+                user.status === "Habilitada" ? "Inhabilitada" : "Habilitada",
+            }
+          : user,
+      ),
+    );
+  };
+
   if (selectedAlert) {
     return (
-      <section className="panel-card">
-        <button type="button" onClick={() => setSelectedAlert(null)}>
-          Volver al panel
-        </button>
-        <p className="eyebrow">Detalle de alerta {selectedAlert.id}</p>
-        <h1>{selectedAlert.user}</h1>
-        <p>
-          <span className="status-badge">{selectedAlert.status}</span>
-        </p>
-        <p>
-          <strong>Inicio:</strong> {selectedAlert.startedAt}
-        </p>
-        <p>
-          <strong>Última ubicación confirmada:</strong> {selectedAlert.location}
-        </p>
-        <div className="map-placeholder">
-          Ubicación confirmada: {selectedAlert.location}
-        </div>
-        <section className="detail-section">
-          <h2>Evidencias recibidas</h2>
-          <div className="evidence-grid">
-            <div className="evidence-item">Fotografía de entorno urbano</div>
-            <div className="evidence-item">
-              Fotografía de ubicación reportada
+      <>
+        <section className="panel-card">
+          <button type="button" onClick={() => setSelectedAlert(null)}>
+            Volver al panel
+          </button>
+          <p className="eyebrow">Detalle de alerta {selectedAlert.id}</p>
+          <h1>{selectedAlert.user}</h1>
+          <p>
+            <span className="status-badge">{selectedAlert.status}</span>
+          </p>
+          <p>
+            <strong>Inicio:</strong> {selectedAlert.startedAt}
+          </p>
+          <p>
+            <strong>Última ubicación confirmada:</strong>{" "}
+            {selectedAlert.location}
+          </p>
+          <div className="map-placeholder">
+            Ubicación confirmada: {selectedAlert.location}
+          </div>
+          <section className="detail-section">
+            <h2>Evidencias recibidas</h2>
+            <div className="evidence-grid">
+              <div className="evidence-item">Fotografía de entorno urbano</div>
+              <div className="evidence-item">
+                Fotografía de ubicación reportada
+              </div>
             </div>
+          </section>
+          <section className="detail-section">
+            <h2>Comunicación con la usuaria</h2>
+            <div className="message-list">
+              {messages.map((message) => (
+                <p key={message}>{message}</p>
+              ))}
+            </div>
+            <label>
+              Mensaje del operador
+              <textarea
+                value={draftMessage}
+                onChange={(event) => setDraftMessage(event.target.value)}
+                placeholder="Escribe una indicación segura"
+              />
+            </label>
+            <button
+              type="button"
+              onClick={sendMessage}
+              disabled={!draftMessage.trim()}
+            >
+              Enviar mensaje
+            </button>
+          </section>
+          {selectedAlert.status === "Activa" ? (
+            <button type="button" onClick={startAttention}>
+              Iniciar atención
+            </button>
+          ) : null}
+          <p>
+            La finalización solo puede ser realizada por la usuaria desde la
+            aplicación móvil.
+          </p>
+        </section>
+        <section className="panel-card">
+          <header className="table-header">
+            <h2>Gestión de usuarias</h2>
+            <label>
+              Buscar
+              <input
+                value={userSearch}
+                onChange={(event) => setUserSearch(event.target.value)}
+                placeholder="Nombre o correo"
+              />
+            </label>
+          </header>
+          <div className="responsive-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Usuaria</th>
+                  <th>Correo</th>
+                  <th>Estado</th>
+                  <th>Acción</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleUsers.map((user) => (
+                  <tr key={user.id}>
+                    <td>
+                      {user.name}
+                      <span className="cell-meta">{user.id}</span>
+                    </td>
+                    <td>{user.email}</td>
+                    <td>
+                      <span className="status-badge">{user.status}</span>
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        onClick={() => toggleUserStatus(user.id)}
+                      >
+                        {user.status === "Habilitada"
+                          ? "Inhabilitar"
+                          : "Habilitar"}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </section>
-        <section className="detail-section">
-          <h2>Comunicación con la usuaria</h2>
-          <div className="message-list">
-            {messages.map((message) => (
-              <p key={message}>{message}</p>
-            ))}
-          </div>
-          <label>
-            Mensaje del operador
-            <textarea
-              value={draftMessage}
-              onChange={(event) => setDraftMessage(event.target.value)}
-              placeholder="Escribe una indicación segura"
-            />
-          </label>
-          <button
-            type="button"
-            onClick={sendMessage}
-            disabled={!draftMessage.trim()}
-          >
-            Enviar mensaje
-          </button>
-        </section>
-        {selectedAlert.status === "Activa" ? (
-          <button type="button" onClick={startAttention}>
-            Iniciar atención
-          </button>
-        ) : null}
-        <p>
-          La finalización solo puede ser realizada por la usuaria desde la
-          aplicación móvil.
-        </p>
-      </section>
+      </>
     );
   }
 
