@@ -1,3 +1,4 @@
+// Encapsula la solicitud de permisos y la consulta de coordenadas con Expo Location.
 import * as Location from "expo-location";
 export type LocationResult = {
   latitude: number;

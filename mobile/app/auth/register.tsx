@@ -1,3 +1,4 @@
+// Recoge los datos básicos requeridos para iniciar el registro de una usuaria.
 import { router } from "expo-router";
 import { useState } from "react";
 import {

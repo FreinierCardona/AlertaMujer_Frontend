@@ -1,3 +1,4 @@
+// Confirma y activa la alerta SOS usando los datos configurados por la usuaria.
 import { router } from "expo-router";
 import { Pressable, SafeAreaView, StyleSheet, Text } from "react-native";
 import { useContacts } from "../../src/modules/contacts/ContactsProvider";

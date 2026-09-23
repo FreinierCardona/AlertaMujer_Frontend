@@ -1,3 +1,4 @@
+// Centraliza los contactos de emergencia y conserva la lista en el almacenamiento local.
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   createContext,

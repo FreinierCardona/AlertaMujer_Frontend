@@ -1,3 +1,4 @@
+// Permite elegir y guardar el modo visual de la aplicación móvil.
 import { router } from "expo-router";
 import { Pressable, SafeAreaView, StyleSheet, Text } from "react-native";
 import {

@@ -1,3 +1,4 @@
+// Lista los contactos de emergencia y ofrece sus acciones de administración.
 import { router } from "expo-router";
 import {
   Alert,

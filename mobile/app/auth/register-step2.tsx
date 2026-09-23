@@ -1,3 +1,4 @@
+// Completa el segundo paso del registro antes de crear la sesión local de la usuaria.
 import { router } from "expo-router";
 import { useState } from "react";
 import {
