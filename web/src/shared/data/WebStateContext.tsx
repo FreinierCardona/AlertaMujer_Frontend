@@ -1,6 +1,9 @@
 // Coordina sesión, registros de la interfaz y acciones confirmables entre los módulos web.
-import { createContext, useContext, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { initialAlerts, initialAudit, initialUsers } from './mockData';
+import { ApiError, webApiClient } from '../api/client';
+import { authApi } from '../api/authApi';
+import type { RemoteSession } from '../api/authApi';
 import type {
   AlertRecord,
   AuditEvent,
@@ -19,6 +22,7 @@ type AttentionResult = 'success' | 'conflict' | 'error';
 type UserMutationResult = 'success' | 'duplicate' | 'notAllowed';
 
 interface WebStateValue {
+  hydrated: boolean;
   session: Session | null;
   alerts: AlertRecord[];
   users: UserRecord[];
@@ -27,6 +31,7 @@ interface WebStateValue {
   login: (email: string, password: string) => Promise<LoginResult>;
   logout: () => void;
   expireSession: () => void;
+  refreshSession: () => Promise<boolean>;
   startAttention: (alertId: string) => Promise<AttentionResult>;
   sendMessage: (
     alertId: string,
@@ -74,9 +79,8 @@ function wait(milliseconds = 520) {
 }
 
 export function WebStateProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<Session | null>(() =>
-    readStored('am.session', null),
-  );
+  const [session, setSession] = useState<Session | null>(null);
+  const [hydrated, setHydrated] = useState(false);
   const [alerts, setAlertsState] = useState<AlertRecord[]>(() =>
     readStored('am.alerts', initialAlerts),
   );
@@ -109,40 +113,62 @@ export function WebStateProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const login = async (
-    email: string,
-    password: string,
-  ): Promise<LoginResult> => {
-    await wait();
-    const normalizedEmail = email.trim().toLowerCase();
-    if (normalizedEmail === 'error@alertamujer.org') return 'error';
-    if (normalizedEmail === 'inhabilitada@alertamujer.org') return 'disabled';
-    if (normalizedEmail === 'usuaria@alertamujer.org') return 'unauthorized';
-    if (
-      normalizedEmail !== 'cardonafreinier@gmail.com' ||
-      password !== '1234567890Fs.'
-    )
-      return 'invalid';
+  const clearSession = useCallback(() => {
+    webApiClient.setAccessToken(null);
+    setSession(null);
+    window.sessionStorage.removeItem('am.refresh-token');
+  }, []);
 
+  const applySession = useCallback((remote: RemoteSession) => {
+    if (remote.user.role !== 'ENTITY_ADMIN' || remote.termsPending) {
+      throw new ApiError('Esta cuenta no puede acceder al panel administrativo.', 'FORBIDDEN', 403);
+    }
     const nextSession: Session = {
-      name: 'Freinier Cardona',
+      userId: remote.user.userId,
+      name: `${remote.user.firstNames} ${remote.user.lastNames}`.trim() || remote.user.username,
       role: 'administrator',
-      email: normalizedEmail,
+      email: remote.user.email,
     };
+    webApiClient.setAccessToken(remote.accessToken);
+    window.sessionStorage.setItem('am.refresh-token', remote.refreshToken);
     setSession(nextSession);
-    persist('am.session', nextSession);
-    addAudit({
-      action: 'login',
-      entity: 'Sesión administrativa',
-      result: 'success',
-      detail: 'Acceso administrativo confirmado.',
-    });
-    return 'success';
+  }, []);
+
+  const renewSession = useCallback(async () => {
+    const refreshToken = window.sessionStorage.getItem('am.refresh-token');
+    if (!refreshToken) return false;
+    try {
+      applySession(await authApi.refresh(refreshToken));
+      return true;
+    } catch {
+      clearSession();
+      return false;
+    }
+  }, [applySession, clearSession]);
+
+  useEffect(() => {
+    webApiClient.configureSession(renewSession, clearSession);
+    const timer = window.setTimeout(() => {
+      void renewSession().finally(() => setHydrated(true));
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [clearSession, renewSession]);
+
+  const login = async (identifier: string, password: string): Promise<LoginResult> => {
+    try {
+      applySession(await authApi.login(identifier.trim(), password));
+      return 'success';
+    } catch (cause) {
+      clearSession();
+      if (cause instanceof ApiError && cause.status === 401) return 'invalid';
+      if (cause instanceof ApiError && cause.status === 403) return 'unauthorized';
+      return 'error';
+    }
   };
 
   const logout = () => {
-    setSession(null);
-    window.localStorage.removeItem('am.session');
+    void authApi.logout().catch(() => undefined);
+    clearSession();
   };
 
   const expireSession = () => logout();
@@ -304,6 +330,7 @@ export function WebStateProvider({ children }: { children: ReactNode }) {
   };
 
   const value: WebStateValue = {
+    hydrated,
     session,
     alerts,
     users,
@@ -312,6 +339,7 @@ export function WebStateProvider({ children }: { children: ReactNode }) {
     login,
     logout,
     expireSession,
+    refreshSession: renewSession,
     startAttention,
     sendMessage,
     retryMessage,

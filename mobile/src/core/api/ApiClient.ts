@@ -20,7 +20,10 @@ class ApiClient {
   private invalidateSession: (() => void) | null = null;
   private refreshInFlight: Promise<boolean> | null = null;
   setAccessToken(accessToken: string | null) { this.accessToken = accessToken; }
+  getAccessToken() { return this.accessToken; }
   hasAccessToken() { return this.accessToken !== null; }
+  refreshAccessToken() { return this.coordinatedRefresh(); }
+  invalidateAuthenticatedSession() { this.invalidateSession?.(); }
   configureSession(options: { refreshSession: () => Promise<boolean>; invalidateSession: () => void }) { this.refreshSession = options.refreshSession; this.invalidateSession = options.invalidateSession; }
   async request<T>(path: string, options: RequestOptions = {}): Promise<T> {
     if (!appConfig.apiBaseUrl) throw new ApiError('La URL del servicio no está configurada en esta compilación.', 'CONFIGURATION_ERROR');
@@ -47,6 +50,62 @@ class ApiClient {
       if (error instanceof ApiError) throw error;
       const timedOut = error instanceof Error && error.name === 'AbortError';
       throw new ApiError(timedOut ? 'La solicitud tardó demasiado. Verifica tu conexión e inténtalo nuevamente.' : 'No fue posible conectar con el servicio. Verifica tu conexión e inténtalo nuevamente.', timedOut ? 'REQUEST_TIMEOUT' : 'NETWORK_ERROR');
+    } finally { clearTimeout(timeout); }
+  }
+  async requestMultipart<T>(path: string, formData: FormData): Promise<T> {
+    if (!appConfig.apiBaseUrl) throw new ApiError('La URL del servicio no está configurada en esta compilación.', 'CONFIGURATION_ERROR');
+    const requestId = createRequestId();
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    try {
+      const response = await fetch(`${appConfig.apiBaseUrl.replace(/\/$/, '')}${path}`, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'X-Request-Id': requestId,
+          ...(this.accessToken ? { Authorization: `Bearer ${this.accessToken}` } : {}),
+        },
+        body: formData,
+        signal: controller.signal,
+      });
+      const payload = await readPayload(response);
+      if (response.status === 401) {
+        const refreshed = await this.coordinatedRefresh();
+        if (!refreshed) this.invalidateSession?.();
+      }
+      if (!response.ok) throw toApiError(payload, response.status, response.headers.get('X-Request-Id') ?? requestId);
+      return payload as T;
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      const timedOut = error instanceof Error && error.name === 'AbortError';
+      throw new ApiError(timedOut ? 'La carga tardó demasiado. Inténtalo nuevamente.' : 'No fue posible conectar con el servicio. Inténtalo nuevamente.', timedOut ? 'REQUEST_TIMEOUT' : 'NETWORK_ERROR');
+    } finally { clearTimeout(timeout); }
+  }
+  async requestBlob(path: string, retrying = false): Promise<Blob> {
+    if (!appConfig.apiBaseUrl) throw new ApiError('La URL del servicio no está configurada en esta compilación.', 'CONFIGURATION_ERROR');
+    const requestId = createRequestId();
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    try {
+      const response = await fetch(`${appConfig.apiBaseUrl.replace(/\/$/, '')}${path}`, {
+        headers: {
+          Accept: 'image/webp',
+          'X-Request-Id': requestId,
+          ...(this.accessToken ? { Authorization: `Bearer ${this.accessToken}` } : {}),
+        },
+        signal: controller.signal,
+      });
+      if (response.status === 401 && !retrying && await this.coordinatedRefresh()) return this.requestBlob(path, true);
+      if (!response.ok) {
+        const payload = await readPayload(response);
+        if (response.status === 401) this.invalidateSession?.();
+        throw toApiError(payload, response.status, response.headers.get('X-Request-Id') ?? requestId);
+      }
+      return response.blob();
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      const timedOut = error instanceof Error && error.name === 'AbortError';
+      throw new ApiError(timedOut ? 'La descarga tardó demasiado. Inténtalo nuevamente.' : 'No fue posible descargar la fotografía. Inténtalo nuevamente.', timedOut ? 'REQUEST_TIMEOUT' : 'NETWORK_ERROR');
     } finally { clearTimeout(timeout); }
   }
   private async coordinatedRefresh() {

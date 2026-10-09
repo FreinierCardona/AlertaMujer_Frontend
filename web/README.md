@@ -6,6 +6,7 @@ Aplicación React + TypeScript para el sitio público y el panel administrativo 
 
 ```bash
 npm install
+copy .env.example .env
 npm run dev
 ```
 
@@ -26,6 +27,4 @@ npm run test:e2e
 
 ## Alcance
 
-El sitio público informa sobre la solución y guía el flujo visual de emergencia. El panel administrativo permite consultar y gestionar alertas conforme a los permisos de la interfaz. Las preferencias, filtros y cambios de demostración se conservan localmente en el navegador; no hay backend ni APK publicada en este repositorio.
-
-Para la demostración administrativa use `cardonafreinier@gmail.com` / `1234567890Fs.`.
+El sitio público informa sobre la solución. El acceso administrativo, la lista de alertas y el detalle de evidencia/chat requieren un Backend configurado mediante `VITE_API_BASE_URL`; el access token permanece en memoria y el refresh token solo durante la pestaña.

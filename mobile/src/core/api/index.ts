@@ -19,3 +19,7 @@ export type {
 } from './emergencyApi';
 export { identityApi } from './identityApi';
 export type { UserProfile } from './identityApi';
+export { evidenceApi, evidenceDataUri } from './evidenceApi';
+export type { EvidenceResponse } from './evidenceApi';
+export { chatApi } from './chatApi';
+export type { ChatMessageResponse } from './chatApi';
