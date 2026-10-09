@@ -26,9 +26,12 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const isActive = (itemPath: string) =>
     path === itemPath ||
     (itemPath !== '/admin/dashboard' && path.startsWith(`${itemPath}/`));
-  const signOut = () => {
-    logout();
-    navigate('/admin/login', { replace: true });
+  const signOut = async () => {
+    const result = await logout();
+    navigate(
+      `/admin/login?notice=${result === 'confirmed' ? 'logout' : 'logout-unconfirmed'}`,
+      { replace: true },
+    );
   };
 
   return (
@@ -73,7 +76,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
         <button
           type="button"
           className="sidebar-logout"
-          onClick={signOut}
+          onClick={() => void signOut()}
         >
           <Icon name="logout" />
           <span>{t('logout')}</span>
