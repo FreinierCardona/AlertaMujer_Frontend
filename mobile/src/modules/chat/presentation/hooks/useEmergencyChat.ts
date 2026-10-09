@@ -30,6 +30,11 @@ export function useEmergencyChat(emergencyId: string, confirmedStatus: Emergency
   const [remoteStatus, setRemoteStatus] = useState<EmergencyChatStatus>(confirmedStatus);
   const clientRef = useRef<EmergencyStompClient | null>(null);
 
+  useEffect(() => {
+    const timer = setTimeout(() => setRemoteStatus(confirmedStatus), 0);
+    return () => clearTimeout(timer);
+  }, [confirmedStatus]);
+
   const apply = useCallback((message: ChatMessageResponse) => {
     setMessages((current) => {
       const next = merge(current, message);

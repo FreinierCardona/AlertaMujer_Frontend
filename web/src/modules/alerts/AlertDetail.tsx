@@ -48,6 +48,11 @@ function useEmergencyChat(emergencyId: string, confirmedStatus: RemoteEmergencyS
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<{ clientMessageId: string; content: string } | null>(null);
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => setStatus(confirmedStatus), 0);
+    return () => window.clearTimeout(timer);
+  }, [confirmedStatus]);
+
   const append = useCallback((message: ChatMessageResponse) => {
     setMessages((current) => {
       const next = merge(current, message);
