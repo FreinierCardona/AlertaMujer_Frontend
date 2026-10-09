@@ -2,12 +2,14 @@ import Constants from 'expo-constants';
 
 export interface AppConfig {
   apiBaseUrl: string;
+  wsUrl: string;
   authorityPhone: string;
   remotePushEnabled: boolean;
 }
 
 const appConfig: AppConfig = {
   apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL ?? '',
+  wsUrl: (process.env.EXPO_PUBLIC_API_BASE_URL ?? '').replace(/^http/i, 'ws').replace(/\/$/, '') + '/ws',
   authorityPhone: process.env.EXPO_PUBLIC_AUTHORITY_PHONE ?? '',
   remotePushEnabled: process.env.EXPO_PUBLIC_ENABLE_REMOTE_PUSH === 'true',
 };

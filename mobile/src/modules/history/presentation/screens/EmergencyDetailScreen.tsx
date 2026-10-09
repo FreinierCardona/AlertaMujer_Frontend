@@ -8,9 +8,11 @@ import AppScreen from '@shared/ui/AppScreen';
 import AppCard from '@shared/ui/AppCard';
 import ScreenHeader from '@shared/ui/ScreenHeader';
 import StatusBanner from '@shared/ui/StatusBanner';
+import AppButton from '@shared/ui/AppButton';
 import Routes from '@shell/navigation/routes';
 import { useAppTheme } from '@shared/theme';
 import { useI18n } from '@shared/i18n';
+import EvidenceGallery from '@modules/evidence/presentation/components/EvidenceGallery';
 
 export default function EmergencyDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -48,6 +50,10 @@ export default function EmergencyDetailScreen() {
             : '—',
         )}
       </AppCard>
+      {id ? <><Text style={{ color: colors.textDark, fontWeight: '700', marginTop: spacing.lg, marginBottom: spacing.sm }}>{t('history.evidence')}</Text>
+        <EvidenceGallery emergencyId={id} />
+        <AppButton title={t('emergency.chat')} onPress={() => router.push({ pathname: '/emergency/chat/[id]', params: { id } })} variant="outline" style={{ marginTop: spacing.md }} />
+      </> : null}
     </> : null}
   </AppScreen>;
 }

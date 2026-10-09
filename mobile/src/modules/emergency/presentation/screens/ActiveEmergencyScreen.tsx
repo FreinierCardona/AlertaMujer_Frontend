@@ -70,8 +70,8 @@ export default function ActiveEmergencyScreen() {
       <Action icon="call-outline" label={t('emergency.call')} onPress={() => void Linking.openURL('tel:')} />
     </View>
     <Text style={{ color: colors.textMedium, fontSize: 12, textAlign: 'center', marginTop: 6 }}>{t('call.disclaimer')}</Text>
-    <Text style={[styles.section, { color: colors.textDark, marginTop: spacing.lg }]}>{t('history.evidence')} · {activeEmergency.evidence.length}</Text>
-    <EvidenceGallery items={activeEmergency.evidence} />
+    <Text style={[styles.section, { color: colors.textDark, marginTop: spacing.lg }]}>{t('history.evidence')}</Text>
+    <EvidenceGallery emergencyId={activeEmergency.id} />
     {backgroundMessage ? <AppCard style={{ marginTop: spacing.lg }}><Text style={{ color: backgroundMessage === 'ok' ? colors.success : colors.warning, fontSize: 12 }}>{t(backgroundMessage === 'ok' ? 'emergency.backgroundOk' : 'emergency.backgroundError')}</Text></AppCard> : null}
     <AppButton title={t('emergency.finish')} onPress={() => setFinish(true)} variant="danger" style={{ marginTop: spacing.lg }} />
     <ConfirmModal visible={finish} title={t('emergency.finishTitle')} message={t('emergency.finishBody')} confirmLabel={t('emergency.finish')} cancelLabel={t('common.cancel')} destructive loading={finishing} onCancel={() => setFinish(false)} onConfirm={() => void close()} />

@@ -38,8 +38,10 @@ function ExpireSession() {
 
 export function Router() {
   const { path } = useNavigation();
-  const { session } = useWebState();
+  const { session, hydrated } = useWebState();
   const { t } = usePreferences();
+
+  if (!hydrated) return null;
 
   if (path === '/')
     return (

@@ -43,6 +43,7 @@ export const DEFAULT_HELP_MESSAGE =
   'Necesito ayuda. He activado una alerta de emergencia. Mi ubicación se está compartiendo.';
 
 export interface UserProfileView {
+  userId: string;
   username: string;
   name: string;
   lastName: string;
@@ -55,19 +56,6 @@ export interface Coordinates {
   accuracy: number | null;
   capturedAt: string;
 }
-export interface EvidenceItem {
-  id: string;
-  uri: string;
-  createdAt: string;
-  localOnly: true;
-}
-export interface ChatMessage {
-  id: string;
-  author: 'user' | 'admin';
-  text: string;
-  createdAt: string;
-  localOnly: true;
-}
 export type EmergencyStatus = 'active' | 'inProgress' | 'offline' | 'finalized';
 export interface Emergency {
   id: string;
@@ -79,8 +67,6 @@ export interface Emergency {
   lastConfirmedLocation?: Coordinates;
   messageSnapshot?: string;
   syncState: 'synced' | 'pending';
-  evidence: EvidenceItem[];
-  chat: ChatMessage[];
 }
 interface StoredState {
   activeEmergency: Emergency | null;
@@ -88,6 +74,7 @@ interface StoredState {
 }
 const initialState: StoredState = { activeEmergency: null, history: [] };
 const emptyProfile: UserProfileView = {
+  userId: '',
   username: '',
   name: '',
   lastName: '',
@@ -95,6 +82,7 @@ const emptyProfile: UserProfileView = {
   phone: '',
 };
 const toViewProfile = (user: UserProfile): UserProfileView => ({
+  userId: user.userId,
   username: user.username,
   name: user.firstNames,
   lastName: user.lastNames,
@@ -137,8 +125,6 @@ function toEmergency(
     messageSnapshot:
       'messageSnapshot' in response ? response.messageSnapshot : undefined,
     syncState: 'synced',
-    evidence: [],
-    chat: [],
   };
 }
 
@@ -196,8 +182,6 @@ interface AppStateValue extends StoredState {
   finishEmergency: () => Promise<{ ok: boolean; message?: string }>;
   refreshHistory: () => Promise<void>;
   loadMoreHistory: () => Promise<void>;
-  addEvidence: (uri: string) => boolean;
-  sendMessage: (text: string) => boolean;
 }
 export const AppStateContext = createContext<AppStateValue | undefined>(
   undefined,
@@ -726,58 +710,6 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       };
     }
   }, [refreshHistory, state.activeEmergency]);
-  const addEvidence = useCallback(
-    (uri: string) => {
-      if (!requirements.connection || !state.activeEmergency) return false;
-      const evidence: EvidenceItem = {
-        id: `E-${Date.now()}`,
-        uri,
-        createdAt: new Date().toISOString(),
-        localOnly: true,
-      };
-      setState((current) =>
-        current.activeEmergency
-          ? {
-              ...current,
-              activeEmergency: {
-                ...current.activeEmergency,
-                evidence: [...current.activeEmergency.evidence, evidence],
-              },
-            }
-          : current,
-      );
-      return true;
-    },
-    [requirements.connection, state.activeEmergency],
-  );
-  const sendMessage = useCallback(
-    (text: string) => {
-      if (!requirements.connection || !state.activeEmergency || !text.trim()) {
-        return false;
-      }
-      const message: ChatMessage = {
-        id: `M-${Date.now()}`,
-        author: 'user',
-        text: text.trim(),
-        createdAt: new Date().toISOString(),
-        localOnly: true,
-      };
-      setState((current) =>
-        current.activeEmergency
-          ? {
-              ...current,
-              activeEmergency: {
-                ...current.activeEmergency,
-                chat: [...current.activeEmergency.chat, message],
-              },
-            }
-          : current,
-      );
-      return true;
-    },
-    [requirements.connection, state.activeEmergency],
-  );
-
   const value = useMemo<AppStateValue>(
     () => ({
       ...state,
@@ -815,13 +747,10 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       finishEmergency,
       refreshHistory,
       loadMoreHistory,
-      addEvidence,
-      sendMessage,
     }),
     [
       accessToken,
       acceptTerms,
-      addEvidence,
       backgroundMessage,
       changePassword,
       contacts,
@@ -847,7 +776,6 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       requirements,
       resolveRequirement,
       loadMoreHistory,
-      sendMessage,
       sessionNotice,
       setHelpMessage,
       signIn,

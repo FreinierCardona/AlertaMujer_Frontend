@@ -9,22 +9,22 @@ import AppButton from '@shared/ui/AppButton';
 import ScreenHeader from '@shared/ui/ScreenHeader';
 import StatusBanner from '@shared/ui/StatusBanner';
 import useAppState from '@shell/providers/useAppState';
+import { ApiError, evidenceApi } from '@core/api';
 import { useAppTheme } from '@shared/theme';
 import { useI18n } from '@shared/i18n';
 export default function CaptureEvidenceScreen() {
   const router = useRouter();
-  const { activeEmergency, requirements, addEvidence } = useAppState();
+  const { activeEmergency } = useAppState();
   const { t } = useI18n();
   const { spacing } = useAppTheme();
-  const [uri, setUri] = useState<string | null>(null);
-  const [error, setError] = useState<
-    'permission' | 'capture' | 'offline' | null
-  >(null);
+  const [asset, setAsset] = useState<ImagePicker.ImagePickerAsset | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
   const capture = async () => {
     setError(null);
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
-      setError('permission');
+      setError(t('evidence.permission'));
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
@@ -32,15 +32,25 @@ export default function CaptureEvidenceScreen() {
       allowsEditing: false,
       quality: 0.8,
     });
-    if (!result.canceled && result.assets[0]) setUri(result.assets[0].uri);
+    if (!result.canceled && result.assets[0]) setAsset(result.assets[0]);
   };
-  const save = () => {
-    if (!uri) return;
-    if (!addEvidence(uri)) {
-      setError('offline');
+  const save = async () => {
+    if (!asset || !activeEmergency) return;
+    if (activeEmergency.status === 'offline' || activeEmergency.status === 'finalized') {
+      setError(t('evidence.offline'));
       return;
     }
-    router.back();
+    setUploading(true);
+    setError(null);
+    try {
+      await evidenceApi.upload(activeEmergency.id, asset);
+      setAsset(null);
+      router.back();
+    } catch (cause) {
+      setError(cause instanceof ApiError ? cause.message : t('common.error'));
+    } finally {
+      setUploading(false);
+    }
   };
   if (!activeEmergency) return <Redirect href={Routes.home} />;
   return (
@@ -53,23 +63,18 @@ export default function CaptureEvidenceScreen() {
       {error ? (
         <StatusBanner
           tone="danger"
-          title={t(
-            error === 'permission'
-              ? 'evidence.permission'
-              : error === 'offline'
-                ? 'evidence.offline'
-                : 'common.error',
-          )}
+          title={t('common.error')}
+          message={error}
         />
       ) : null}
-      {uri ? (
+      {asset ? (
         <>
           <StatusBanner
             tone="info"
             title={t('evidence.review')}
           />
           <Image
-            source={{ uri }}
+            source={{ uri: asset.uri }}
             style={styles.preview}
           />
           <View style={[styles.actions, { marginTop: spacing.md }]}>
@@ -78,20 +83,15 @@ export default function CaptureEvidenceScreen() {
               onPress={() => void capture()}
               variant="outline"
               style={styles.button}
+              disabled={uploading}
             />
             <AppButton
               title={t('evidence.send')}
-              onPress={save}
-              disabled={!requirements.connection}
+              onPress={() => void save()}
+              loading={uploading}
               style={styles.button}
             />
           </View>
-          {!requirements.connection ? (
-            <StatusBanner
-              tone="warning"
-              title={t('evidence.offline')}
-            />
-          ) : null}
         </>
       ) : (
         <>
