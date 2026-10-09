@@ -6,6 +6,7 @@ export type AccountStatus = 'enabled' | 'disabled' | 'deleted';
 export type ResultStatus = 'success' | 'failed';
 
 export interface Session {
+  userId: string;
   name: string;
   role: 'administrator';
   email: string;

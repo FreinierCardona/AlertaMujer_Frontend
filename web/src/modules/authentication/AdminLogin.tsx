@@ -34,7 +34,7 @@ export function AdminLogin() {
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     const nextErrors: FormErrors = {};
-    if (!/^\S+@\S+\.\S+$/.test(email)) nextErrors.email = t('emailRequired');
+    if (!email.trim()) nextErrors.email = t('emailRequired');
     if (password.length < 8) nextErrors.password = t('passwordRequired');
     setErrors(nextErrors);
     setAccessError(null);
@@ -119,7 +119,7 @@ export function AdminLogin() {
                 <input
                   id="login-email"
                   autoComplete="username"
-                  inputMode="email"
+                  inputMode="text"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
                   aria-invalid={Boolean(errors.email)}
