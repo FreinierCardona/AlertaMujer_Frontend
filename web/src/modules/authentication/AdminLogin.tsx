@@ -11,7 +11,7 @@ import {
 } from '../../shared/ui/components';
 import { Icon } from '../../shared/ui/Icon';
 
-type FormErrors = { email?: string; password?: string };
+type FormErrors = { identifier?: string; password?: string };
 type AccessError =
   | 'invalidCredentials'
   | 'disabledAccount'
@@ -23,24 +23,25 @@ export function AdminLogin() {
   const { t } = usePreferences();
   const { login } = useWebState();
   const { navigate, search } = useNavigation();
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
   const [accessError, setAccessError] = useState<AccessError>(null);
   const [submitting, setSubmitting] = useState(false);
   const expired = new URLSearchParams(search).get('notice') === 'expired';
+  const logoutNotice = new URLSearchParams(search).get('notice');
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     const nextErrors: FormErrors = {};
-    if (!email.trim()) nextErrors.email = t('emailRequired');
-    if (password.length < 8) nextErrors.password = t('passwordRequired');
+    if (!identifier.trim()) nextErrors.identifier = t('identifierRequired');
+    if (!password) nextErrors.password = t('passwordRequired');
     setErrors(nextErrors);
     setAccessError(null);
     if (Object.keys(nextErrors).length) return;
     setSubmitting(true);
-    const result = await login(email, password);
+    const result = await login(identifier, password);
     setSubmitting(false);
     if (result === 'success') {
       const requested = window.sessionStorage.getItem('am.requestedPath');
@@ -53,6 +54,7 @@ export function AdminLogin() {
       );
       return;
     }
+    setPassword('');
     const resultMessages = {
       invalid: 'invalidCredentials',
       disabled: 'disabledAccount',
@@ -104,13 +106,19 @@ export function AdminLogin() {
           <h2 id="login-title">{t('loginTitle')}</h2>
           <p>{t('loginIntro')}</p>
           {expired && <Notice kind="warning">{t('expiredSession')}</Notice>}
+          {logoutNotice === 'logout' && (
+            <Notice kind="success">{t('logoutConfirmed')}</Notice>
+          )}
+          {logoutNotice === 'logout-unconfirmed' && (
+            <Notice kind="warning">{t('logoutUnconfirmed')}</Notice>
+          )}
           {accessError && <Notice kind="error">{t(accessError)}</Notice>}
           <form
             onSubmit={submit}
             noValidate
           >
             <div className="form-control">
-              <label htmlFor="login-email">{t('email')}</label>
+              <label htmlFor="login-email">{t('identifier')}</label>
               <span className="input-wrap">
                 <Icon
                   name="mail"
@@ -120,20 +128,20 @@ export function AdminLogin() {
                   id="login-email"
                   autoComplete="username"
                   inputMode="text"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  aria-invalid={Boolean(errors.email)}
+                  value={identifier}
+                  onChange={(event) => setIdentifier(event.target.value)}
+                  aria-invalid={Boolean(errors.identifier)}
                   aria-describedby={
-                    errors.email ? 'login-email-error' : undefined
+                    errors.identifier ? 'login-email-error' : undefined
                   }
                 />
               </span>
-              {errors.email && (
+              {errors.identifier && (
                 <span
                   className="field-error"
                   id="login-email-error"
                 >
-                  {errors.email}
+                  {errors.identifier}
                 </span>
               )}
             </div>

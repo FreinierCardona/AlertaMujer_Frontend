@@ -1,15 +1,31 @@
 export class ApiError extends Error {
-  constructor(message: string, readonly code: string, readonly status?: number) {
+  constructor(
+    message: string,
+    readonly code: string,
+    readonly status?: number,
+    readonly requestId?: string,
+  ) {
     super(message);
     this.name = 'ApiError';
   }
 }
 
-type RequestOptions = { method?: 'GET' | 'POST'; body?: unknown; authenticated?: boolean; retrying?: boolean };
-type BackendError = { code?: string; message?: string };
+type RequestOptions = {
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  body?: unknown;
+  authenticated?: boolean;
+  retrying?: boolean;
+};
+type BackendError = { code?: string; message?: string; requestId?: string };
 const BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '');
+const WS_BASE_URL = (import.meta.env.VITE_WS_BASE_URL ?? '').replace(/\/$/, '');
+const timeoutValue = Number(import.meta.env.VITE_API_TIMEOUT_MS ?? 15_000);
+const REQUEST_TIMEOUT_MS = Number.isFinite(timeoutValue) && timeoutValue > 0 ? timeoutValue : 15_000;
 
-export const webSocketUrl = () => `${BASE_URL.replace(/^http/i, 'ws')}/ws`;
+export const webSocketUrl = () => {
+  const origin = WS_BASE_URL || BASE_URL.replace(/^http/i, 'ws');
+  return origin ? `${origin}/ws` : '';
+};
 
 class WebApiClient {
   private accessToken: string | null = null;
@@ -51,16 +67,28 @@ class WebApiClient {
 
   private async fetch(path: string, options: RequestOptions) {
     const authenticated = options.authenticated ?? true;
-    return fetch(`${BASE_URL}${path}`, {
-      method: options.method ?? 'GET',
-      headers: {
-        Accept: 'application/json',
-        ...(options.body === undefined ? {} : { 'Content-Type': 'application/json' }),
-        ...(authenticated && this.accessToken ? { Authorization: `Bearer ${this.accessToken}` } : {}),
-        'X-Request-Id': `web-${crypto.randomUUID()}`,
-      },
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
-    });
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    try {
+      return await fetch(`${BASE_URL}${path}`, {
+        method: options.method ?? 'GET',
+        headers: {
+          Accept: 'application/json',
+          ...(options.body === undefined ? {} : { 'Content-Type': 'application/json' }),
+          ...(authenticated && this.accessToken ? { Authorization: `Bearer ${this.accessToken}` } : {}),
+          'X-Request-Id': `web-${crypto.randomUUID()}`,
+        },
+        body: options.body === undefined ? undefined : JSON.stringify(options.body),
+        signal: controller.signal,
+      });
+    } catch (cause) {
+      if (cause instanceof DOMException && cause.name === 'AbortError') {
+        throw new ApiError('La solicitud tardó demasiado. Intenta nuevamente.', 'REQUEST_TIMEOUT');
+      }
+      throw new ApiError('No fue posible conectarse con el servicio.', 'NETWORK_ERROR');
+    } finally {
+      window.clearTimeout(timeout);
+    }
   }
 
   private async renew() {
@@ -78,7 +106,12 @@ async function responsePayload(response: Response): Promise<unknown> {
 
 function backendError(payload: unknown, status: number) {
   const error = (payload ?? {}) as BackendError;
-  return new ApiError(error.message ?? 'No fue posible completar la operación.', error.code ?? `HTTP_${status}`, status);
+  return new ApiError(
+    error.message ?? 'No fue posible completar la operación.',
+    error.code ?? `HTTP_${status}`,
+    status,
+    error.requestId,
+  );
 }
 
 export const webApiClient = new WebApiClient();

@@ -38,7 +38,7 @@ function ExpireSession() {
 
 export function Router() {
   const { path } = useNavigation();
-  const { session, hydrated } = useWebState();
+  const { session, hydrated, loggingOut, sessionExpired } = useWebState();
   const { t } = usePreferences();
 
   if (!hydrated) return null;
@@ -75,6 +75,8 @@ export function Router() {
       return <ExpireSession />;
     }
     if (!session) {
+      if (loggingOut) return null;
+      if (sessionExpired) return <Redirect to="/admin/login?notice=expired" />;
       window.sessionStorage.setItem(
         'am.requestedPath',
         `${window.location.pathname}${window.location.search}`,
