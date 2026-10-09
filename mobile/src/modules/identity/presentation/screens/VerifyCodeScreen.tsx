@@ -1,136 +1,15 @@
-// Reutiliza una verificación local para registro y recuperación con error y reenvío visibles.
 import { useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import AppScreen from '@shared/ui/AppScreen';
-import AppButton from '@shared/ui/AppButton';
-import ScreenHeader from '@shared/ui/ScreenHeader';
-import StatusBanner from '@shared/ui/StatusBanner';
-import Routes from '@shell/navigation/routes';
-import useAppState from '@shell/providers/useAppState';
-import { useAppTheme } from '@shared/theme';
-import { useI18n } from '@shared/i18n';
-import { maskDestination, onlyDigits } from '@shared/validation/formRules';
+import AppScreen from '@shared/ui/AppScreen'; import AppButton from '@shared/ui/AppButton'; import ScreenHeader from '@shared/ui/ScreenHeader'; import StatusBanner from '@shared/ui/StatusBanner';
+import Routes from '@shell/navigation/routes'; import useAppState from '@shell/providers/useAppState'; import { identityApi, ApiError } from '@core/api'; import { useAppTheme } from '@shared/theme'; import { maskDestination, onlyDigits } from '@shared/validation/formRules';
+
+type Flow = 'registration' | 'contact';
 export default function VerifyCodeScreen() {
-  const router = useRouter();
-  const params = useLocalSearchParams<{
-    flow?: 'register' | 'forgot' | 'profile';
-    destination?: string;
-    name?: string;
-    lastName?: string;
-    phone?: string;
-    email?: string;
-  }>();
-  const { updateProfile } = useAppState();
-  const { t } = useI18n();
-  const { colors, spacing, typography } = useAppTheme();
-  const [code, setCode] = useState('');
-  const [error, setError] = useState<'invalid' | 'expired' | null>(null);
-  const [resent, setResent] = useState(false);
-  const verify = () => {
-    if (code === '000000') {
-      setError('invalid');
-      return;
-    }
-    if (code === '999999') {
-      setError('expired');
-      return;
-    }
-    if (code.length !== 6) {
-      setError('invalid');
-      return;
-    }
-    if (params.flow === 'forgot') {
-      router.replace(Routes.resetPassword);
-      return;
-    }
-    updateProfile({
-      name: params.name ?? t('profile.defaultName'),
-      lastName: params.lastName ?? '',
-      phone: params.phone ?? '',
-      email: params.email ?? params.destination ?? '',
-    });
-    if (params.flow === 'profile') {
-      router.replace(Routes.profile);
-      return;
-    }
-    router.replace(Routes.login);
-  };
-  return (
-    <AppScreen>
-      <ScreenHeader
-        canGoBack
-        title={t('auth.verifyTitle')}
-        subtitle={t('auth.verifyHelp')}
-      />
-      <Text
-        style={{
-          color: colors.primary,
-          textAlign: 'center',
-          marginBottom: spacing.lg,
-        }}
-      >
-        {maskDestination(params.destination ?? '')}
-      </Text>
-      <TextInput
-        accessibilityLabel={t('auth.verifyTitle')}
-        value={code}
-        onChangeText={(v) => {
-          setCode(onlyDigits(v, 6));
-          setError(null);
-        }}
-        keyboardType="number-pad"
-        maxLength={6}
-        textAlign="center"
-        style={[
-          styles.code,
-          {
-            backgroundColor: colors.inputBackground,
-            borderColor: error ? colors.danger : colors.inputBorder,
-            color: colors.textDark,
-            fontSize: typography.xl,
-            letterSpacing: 12,
-          },
-        ]}
-      />
-      {error ? (
-        <StatusBanner
-          tone="danger"
-          title={t(
-            error === 'expired' ? 'auth.expiredCode' : 'auth.invalidCode',
-          )}
-        />
-      ) : resent ? (
-        <StatusBanner
-          tone="success"
-          title={t('auth.resent')}
-        />
-      ) : null}
-      <View style={{ height: spacing.md }} />
-      <AppButton
-        title={t('auth.verify')}
-        onPress={verify}
-        disabled={code.length !== 6}
-      />
-      <View style={{ height: spacing.sm }} />
-      <AppButton
-        title={t('auth.resend')}
-        onPress={() => {
-          setCode('');
-          setError(null);
-          setResent(true);
-        }}
-        variant="ghost"
-      />
-    </AppScreen>
-  );
+  const router = useRouter(); const params = useLocalSearchParams<{ flow: Flow; registrationRequestId?: string; channel?: 'EMAIL' | 'SMS'; destination?: string; phone?: string; field?: 'email' | 'phone'; simulatedSmsCode?: string }>(); const { verifyContactChange, requestContactChange } = useAppState(); const { colors, spacing, typography } = useAppTheme();
+  const [enteredCode, setEnteredCode] = useState(''); const [message, setMessage] = useState<string | null>(null); const [loading, setLoading] = useState(false); const channel = params.channel ?? (params.field === 'phone' ? 'SMS' : 'EMAIL'); const code = enteredCode || params.simulatedSmsCode || '';
+  const verify = async () => { if (code.length !== 6) return; setLoading(true); setMessage(null); try { if (params.flow === 'contact' && params.field && params.destination) { await verifyContactChange(params.field, params.destination, code); router.replace(params.field === 'email' ? Routes.login : Routes.profile); return; } if (!params.registrationRequestId) throw new Error('No fue posible recuperar la solicitud de registro.'); const result = await identityApi.verifyRegistrationCode(params.registrationRequestId, channel, code); if (channel === 'EMAIL') { const sms = await identityApi.issueRegistrationCode(params.registrationRequestId, 'SMS'); router.replace({ pathname: Routes.verifyCode, params: { flow: 'registration', registrationRequestId: params.registrationRequestId, channel: 'SMS', destination: params.phone, phone: params.phone, simulatedSmsCode: sms.simulatedSmsCode ?? '' } }); return; } if (result.status === 'COMPLETED') { router.replace(Routes.login); return; } setMessage('El registro aún no está completo. Verifica el canal pendiente.'); } catch (cause) { setMessage(cause instanceof ApiError ? cause.message : 'El código no pudo validarse.'); } finally { setLoading(false); } };
+  const resend = async () => { setLoading(true); setMessage(null); try { if (params.flow === 'contact' && params.field && params.destination) { const issued = await requestContactChange(params.field, params.destination); setEnteredCode(issued.simulatedSmsCode ?? ''); setMessage(params.field === 'phone' ? 'Código SMS simulado autocompletado para esta demostración académica.' : 'Enviamos un nuevo código al correo.'); } if (params.flow === 'registration' && params.registrationRequestId) { const issued = await identityApi.issueRegistrationCode(params.registrationRequestId, channel); setEnteredCode(issued.simulatedSmsCode ?? ''); setMessage(channel === 'SMS' ? 'Código SMS simulado autocompletado para esta demostración académica.' : 'Enviamos un nuevo código al correo.'); } } catch (cause) { setMessage(cause instanceof ApiError ? cause.message : 'No fue posible reenviar el código.'); } finally { setLoading(false); } };
+  return <AppScreen><ScreenHeader canGoBack title="Verifica tu código" subtitle={channel === 'SMS' ? 'Este código simula la verificación de teléfono para fines académicos.' : 'Ingresa el código enviado al correo.'}/><Text style={{ color: colors.primary, textAlign: 'center', marginBottom: spacing.lg }}>{maskDestination(params.destination ?? '')}</Text><TextInput accessibilityLabel="Código de verificación" value={code} onChangeText={(value) => { setEnteredCode(onlyDigits(value, 6)); setMessage(null); }} keyboardType="number-pad" maxLength={6} textAlign="center" style={[styles.code, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.textDark, fontSize: typography.xl, letterSpacing: 12 }]}/>{message ? <StatusBanner tone="warning" title="Verificación" message={message}/> : null}<View style={{ height: spacing.md }}/><AppButton title="Verificar" onPress={() => void verify()} disabled={code.length !== 6} loading={loading}/><View style={{ height: spacing.sm }}/><AppButton title="Reenviar código" onPress={() => void resend()} variant="ghost" loading={loading}/></AppScreen>;
 }
-const styles = StyleSheet.create({
-  code: {
-    height: 62,
-    borderWidth: 1.5,
-    borderRadius: 14,
-    marginBottom: 16,
-    paddingHorizontal: 14,
-  },
-});
+const styles = StyleSheet.create({ code: { height: 62, borderWidth: 1.5, borderRadius: 14, marginBottom: 16, paddingHorizontal: 14 } });
