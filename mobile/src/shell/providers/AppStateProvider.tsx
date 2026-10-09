@@ -1,12 +1,28 @@
 // Conserva preferencias y prototipos heredados; contactos, sesión y perfil provienen del Backend.
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import type { ReactNode } from 'react';
 import { createContext, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ApiError, apiClient, contactsApi, identityApi } from '@core/api';
-import type { ContactAction, ContactRelationship, UserProfile } from '@core/api';
+import {
+  ApiError,
+  apiClient,
+  contactsApi,
+  emergencyApi,
+  identityApi,
+} from '@core/api';
+import type {
+  ContactAction,
+  ContactRelationship,
+  EmergencyDetailResponse,
+  EmergencyResponse,
+  UserProfile,
+} from '@core/api';
 import { tokenStorage } from '@core/api/tokenStorage';
-import { startBackgroundLocation, stopBackgroundLocation } from '@modules/location/infrastructure/backgroundLocation';
+import { canUseBackgroundLocation, canUseRemotePush } from '@core/config/appConfig';
+import {
+  setLocationSyncListener,
+  startBackgroundLocation,
+  stopBackgroundLocation,
+} from '@modules/location/infrastructure/backgroundLocation';
 import {
   getCurrentCoordinates,
   initialDeviceRequirements,
@@ -20,8 +36,8 @@ import type {
 import { registerDeviceToken as registerNativeDeviceToken } from '@modules/location/infrastructure/registerDeviceToken';
 import { useI18n } from '@shared/i18n';
 
-const DATA_KEY = '@alertamujer/local-prototype';
 const CONTACTS_PAGE_SIZE = 50;
+const HISTORY_PAGE_SIZE = 20;
 
 export const DEFAULT_HELP_MESSAGE =
   'Necesito ayuda. He activado una alerta de emergencia. Mi ubicación se está compartiendo.';
@@ -32,11 +48,6 @@ export interface UserProfileView {
   lastName: string;
   email: string;
   phone: string;
-}
-export interface EmergencyContactSnapshot {
-  id: string;
-  name: string;
-  relationship: string;
 }
 export interface Coordinates {
   latitude: number;
@@ -61,12 +72,13 @@ export type EmergencyStatus = 'active' | 'inProgress' | 'offline' | 'finalized';
 export interface Emergency {
   id: string;
   status: EmergencyStatus;
-  previousOnlineStatus: 'active' | 'inProgress';
+  previousOnlineStatus: 'active' | 'inProgress' | null;
   startedAt: string;
   endedAt?: string;
-  location: Coordinates;
-  message: string;
-  contacts: EmergencyContactSnapshot[];
+  lastHeartbeatAt: string | null;
+  lastConfirmedLocation?: Coordinates;
+  messageSnapshot?: string;
+  syncState: 'synced' | 'pending';
   evidence: EvidenceItem[];
   chat: ChatMessage[];
 }
@@ -90,6 +102,46 @@ const toViewProfile = (user: UserProfile): UserProfileView => ({
   phone: user.phone,
 });
 
+function toEmergency(
+  response: EmergencyResponse | EmergencyDetailResponse,
+  lastConfirmedLocation?: Coordinates,
+): Emergency {
+  const status: Record<EmergencyResponse['status'], EmergencyStatus> = {
+    ACTIVE: 'active',
+    IN_PROGRESS: 'inProgress',
+    OFFLINE: 'offline',
+    FINALIZED: 'finalized',
+  };
+  return {
+    id: response.emergencyId,
+    status: status[response.status],
+    previousOnlineStatus:
+      response.previousOperationalStatus === 'IN_PROGRESS'
+        ? 'inProgress'
+        : response.previousOperationalStatus === 'ACTIVE'
+          ? 'active'
+          : null,
+    startedAt: response.startedAt,
+    endedAt: response.finalizedAt ?? undefined,
+    lastHeartbeatAt: response.lastHeartbeatAt,
+    lastConfirmedLocation:
+      lastConfirmedLocation ??
+      ('lastConfirmedLocation' in response && response.lastConfirmedLocation
+        ? {
+            latitude: response.lastConfirmedLocation.latitude,
+            longitude: response.lastConfirmedLocation.longitude,
+            accuracy: response.lastConfirmedLocation.accuracyMeters,
+            capturedAt: response.lastConfirmedLocation.capturedAt,
+          }
+        : undefined),
+    messageSnapshot:
+      'messageSnapshot' in response ? response.messageSnapshot : undefined,
+    syncState: 'synced',
+    evidence: [],
+    chat: [],
+  };
+}
+
 interface AppStateValue extends StoredState {
   hydrated: boolean;
   isAuthenticated: boolean;
@@ -104,6 +156,9 @@ interface AppStateValue extends StoredState {
   contactsConfirmed: boolean;
   contactsError: string | null;
   deviceTokenConflict: boolean;
+  historyLoading: boolean;
+  historyError: string | null;
+  historyHasMore: boolean;
   signIn: (identifier: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   acceptTerms: () => Promise<void>;
@@ -133,9 +188,14 @@ interface AppStateValue extends StoredState {
   registerDeviceToken: () => Promise<void>;
   refreshRequirements: () => Promise<void>;
   resolveRequirement: (key: DeviceRequirementKey) => Promise<void>;
-  createEmergency: () => Promise<{ ok: boolean; reason?: string }>;
-  setEmergencyStatus: (status: 'active' | 'inProgress') => void;
-  finishEmergency: () => boolean;
+  createEmergency: () => Promise<{
+    ok: boolean;
+    reason?: 'requirements' | 'location' | 'server';
+    message?: string;
+  }>;
+  finishEmergency: () => Promise<{ ok: boolean; message?: string }>;
+  refreshHistory: () => Promise<void>;
+  loadMoreHistory: () => Promise<void>;
   addEvidence: (uri: string) => boolean;
   sendMessage: (text: string) => boolean;
 }
@@ -152,6 +212,7 @@ function messageFor(error: unknown) {
 export function AppStateProvider({ children }: { children: ReactNode }) {
   const { language } = useI18n();
   const [state, setState] = useState<StoredState>(initialState);
+  const activeEmergencyId = state.activeEmergency?.id;
   const [profile, setProfile] = useState<UserProfileView>(emptyProfile);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [termsPending, setTermsPending] = useState(false);
@@ -167,7 +228,17 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const [contactsConfirmed, setContactsConfirmed] = useState(false);
   const [contactsError, setContactsError] = useState<string | null>(null);
   const [deviceTokenConflict, setDeviceTokenConflict] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [historyPage, setHistoryPage] = useState(-1);
+  const [historyHasMore, setHistoryHasMore] = useState(true);
   const contactsRefreshInFlight = useRef<Promise<void> | null>(null);
+  const needsEmergencyReconciliation = useRef(false);
+  const emergencyCreateInFlight = useRef<Promise<{
+    ok: boolean;
+    reason?: 'requirements' | 'location' | 'server';
+    message?: string;
+  }> | null>(null);
 
   const refreshContacts = useCallback(async () => {
     if (contactsRefreshInFlight.current) return contactsRefreshInFlight.current;
@@ -208,6 +279,50 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     setDeviceTokenConflict(result === 'conflict');
   }, []);
 
+  const fetchHistoryPage = useCallback(async (page: number, append: boolean) => {
+    setHistoryLoading(true);
+    setHistoryError(null);
+    try {
+      const response = await emergencyApi.history(page, HISTORY_PAGE_SIZE);
+      const items = response.items.map((item) => toEmergency(item));
+      setState((current) => ({
+        ...current,
+        history: append ? [...current.history, ...items] : items,
+      }));
+      setHistoryPage(response.page);
+      setHistoryHasMore((response.page + 1) * response.size < response.total);
+    } catch (error) {
+      setHistoryError(messageFor(error));
+      throw error;
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
+  const refreshHistory = useCallback(() => fetchHistoryPage(0, false), [fetchHistoryPage]);
+  const loadMoreHistory = useCallback(async () => {
+    if (historyLoading || !historyHasMore) return;
+    await fetchHistoryPage(historyPage + 1, true);
+  }, [fetchHistoryPage, historyHasMore, historyLoading, historyPage]);
+
+  const restoreActiveEmergency = useCallback(async () => {
+    try {
+      const response = await emergencyApi.active();
+      const detail = await emergencyApi.get(response.emergencyId);
+      setState((current) => ({ ...current, activeEmergency: toEmergency(detail) }));
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) {
+        setState((current) => ({ ...current, activeEmergency: null }));
+        return;
+      }
+      setSessionNotice(
+        error instanceof ApiError
+          ? error.message
+          : 'No pudimos comprobar si tienes una alerta activa.',
+      );
+      throw error;
+    }
+  }, []);
+
   const clearSession = useCallback(async (notice: string | null = null) => {
     apiClient.setAccessToken(null);
     setAccessToken(null);
@@ -218,7 +333,12 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     setContactsConfirmed(false);
     setContactsError(null);
     setDeviceTokenConflict(false);
+    setState(initialState);
+    setHistoryPage(-1);
+    setHistoryHasMore(true);
+    setHistoryError(null);
     setSessionNotice(notice);
+    await stopBackgroundLocation().catch(() => undefined);
     await tokenStorage.clear();
   }, []);
 
@@ -246,10 +366,15 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       ]);
       setProfile(toViewProfile(freshProfile));
       setHelpMessageState(settings.message);
+      try {
+        await restoreActiveEmergency();
+      } catch {
+        // La sesiÃ³n es vÃ¡lida; el aviso se expone sin sustituirla por una sesiÃ³n local.
+      }
       void refreshContacts().catch(() => undefined);
       void registerDeviceToken();
     },
-    [refreshContacts, registerDeviceToken],
+    [refreshContacts, registerDeviceToken, restoreActiveEmergency],
   );
 
   const renewSession = useCallback(async () => {
@@ -281,22 +406,6 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       }
     })();
   }, [renewSession]);
-  useEffect(() => {
-    AsyncStorage.getItem(DATA_KEY)
-      .then((saved) => {
-        if (!saved) return;
-        const parsed = JSON.parse(saved) as Partial<StoredState>;
-        setState({
-          activeEmergency: parsed.activeEmergency ?? null,
-          history: Array.isArray(parsed.history) ? parsed.history : [],
-        });
-      })
-      .catch(() => setState(initialState));
-  }, []);
-  useEffect(() => {
-    if (hydrated) void AsyncStorage.setItem(DATA_KEY, JSON.stringify(state));
-  }, [hydrated, state]);
-
   const signIn = useCallback(
     async (identifier: string, password: string) => {
       setSessionNotice(null);
@@ -401,20 +510,129 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         network.isConnected && network.isInternetReachable !== false,
       );
       setRequirements((current) => ({ ...current, connection, checking: false }));
+      if (!connection) {
+        needsEmergencyReconciliation.current = true;
+        setState((current) =>
+          current.activeEmergency
+            ? {
+                ...current,
+                activeEmergency: {
+                  ...current.activeEmergency,
+                  syncState: 'pending',
+                },
+              }
+            : current,
+        );
+      }
     });
     return unsubscribe;
   }, []);
   useEffect(() => {
-    if (!state.activeEmergency) {
+    setLocationSyncListener((result) => {
+      let emergencyId: string | null = null;
+      setState((current) => {
+        if (!current.activeEmergency) return current;
+        if (!result.confirmed) {
+          return {
+            ...current,
+            activeEmergency: { ...current.activeEmergency, syncState: 'pending' },
+          };
+        }
+        return {
+          ...current,
+          activeEmergency: {
+            ...current.activeEmergency,
+            lastConfirmedLocation: result.location,
+            lastHeartbeatAt: new Date().toISOString(),
+            syncState: 'synced',
+          },
+        };
+      });
+      if (result.confirmed && needsEmergencyReconciliation.current) {
+        setState((current) => {
+          emergencyId = current.activeEmergency?.id ?? null;
+          return current;
+        });
+        if (emergencyId) {
+          void emergencyApi
+            .get(emergencyId)
+            .then((response) => {
+              needsEmergencyReconciliation.current = false;
+              setState((current) => ({
+                ...current,
+                activeEmergency:
+                  current.activeEmergency?.id === response.emergencyId
+                    ? toEmergency(response, current.activeEmergency.lastConfirmedLocation)
+                    : current.activeEmergency,
+              }));
+            })
+            .catch(() => undefined);
+        }
+      }
+    });
+    return () => setLocationSyncListener(null);
+  }, []);
+  useEffect(() => {
+    if (!activeEmergencyId) {
       void stopBackgroundLocation().catch(() => undefined);
       return;
     }
+    if (!canUseBackgroundLocation) return;
     const title =
       language === 'es' ? 'Alerta Mujer activa' : 'Alerta Mujer active';
-    void startBackgroundLocation(title, title)
+    void startBackgroundLocation(activeEmergencyId, title, title)
       .then(() => setBackgroundMessage('ok'))
       .catch(() => setBackgroundMessage('error'));
-  }, [language, state.activeEmergency]);
+  }, [activeEmergencyId, language]);
+  useEffect(() => {
+    if (!activeEmergencyId || canUseBackgroundLocation) return;
+    const heartbeat = async () => {
+      if (!requirements.connection) {
+        setState((current) =>
+          current.activeEmergency?.id === activeEmergencyId
+            ? {
+                ...current,
+                activeEmergency: { ...current.activeEmergency, syncState: 'pending' },
+              }
+            : current,
+        );
+        return;
+      }
+      try {
+        const location = await getCurrentCoordinates();
+        await emergencyApi.heartbeat(activeEmergencyId, {
+          latitude: location.latitude,
+          longitude: location.longitude,
+          accuracyMeters: location.accuracy,
+          capturedAt: location.capturedAt,
+        });
+        setState((current) =>
+          current.activeEmergency?.id === activeEmergencyId
+            ? {
+                ...current,
+                activeEmergency: {
+                  ...current.activeEmergency,
+                  lastConfirmedLocation: location,
+                  lastHeartbeatAt: new Date().toISOString(),
+                  syncState: 'synced',
+                },
+              }
+            : current,
+        );
+      } catch {
+        setState((current) =>
+          current.activeEmergency?.id === activeEmergencyId
+            ? {
+                ...current,
+                activeEmergency: { ...current.activeEmergency, syncState: 'pending' },
+              }
+            : current,
+        );
+      }
+    };
+    const interval = setInterval(() => void heartbeat(), 60_000);
+    return () => clearInterval(interval);
+  }, [activeEmergencyId, requirements.connection]);
 
   const hasEligibleContact =
     contactsConfirmed &&
@@ -422,76 +640,92 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       (contact) => contact.status === 'ACCEPTED' && contact.eligible,
     );
   const createEmergency = useCallback(async () => {
-    if (
-      !hasEligibleContact ||
-      !requirements.foreground ||
-      !requirements.background ||
-      !requirements.notifications ||
-      !requirements.gps ||
-      !requirements.connection
-    ) {
-      return { ok: false, reason: 'requirements' };
-    }
+    if (emergencyCreateInFlight.current) return emergencyCreateInFlight.current;
+    const request = (async () => {
+      if (
+        !hasEligibleContact ||
+        !requirements.foreground ||
+        (canUseBackgroundLocation && !requirements.background) ||
+        (canUseRemotePush && !requirements.notifications) ||
+        !requirements.gps ||
+        !requirements.connection
+      ) {
+        return { ok: false as const, reason: 'requirements' as const };
+      }
+      let location: Coordinates;
+      try {
+        location = await getCurrentCoordinates();
+      } catch {
+        return { ok: false as const, reason: 'location' as const };
+      }
+      if (
+        !Number.isFinite(location.latitude) ||
+        !Number.isFinite(location.longitude) ||
+        location.latitude < -90 ||
+        location.latitude > 90 ||
+        location.longitude < -180 ||
+        location.longitude > 180 ||
+        (location.accuracy !== null && location.accuracy < 0)
+      ) {
+        return { ok: false as const, reason: 'location' as const };
+      }
+      try {
+        const response = await emergencyApi.createOrRecover({
+          latitude: location.latitude,
+          longitude: location.longitude,
+          accuracyMeters: location.accuracy,
+          capturedAt: location.capturedAt,
+          message: helpMessage.trim() || undefined,
+        });
+        let resolved: EmergencyResponse | EmergencyDetailResponse = response;
+        try {
+          resolved = await emergencyApi.get(response.emergencyId);
+        } catch {
+          // A successful creation remains authoritative even if this optional detail read fails.
+        }
+        setState((current) => ({
+          ...current,
+          activeEmergency: toEmergency(resolved, location),
+        }));
+        return { ok: true as const };
+      } catch (error) {
+        if (error instanceof ApiError && (error.status === 409 || error.status === 422)) {
+          void refreshContacts().catch(() => undefined);
+          void restoreActiveEmergency().catch(() => undefined);
+        }
+        return {
+          ok: false as const,
+          reason: 'server' as const,
+          message: error instanceof ApiError ? error.message : undefined,
+        };
+      }
+    })();
+    emergencyCreateInFlight.current = request;
     try {
-      const location = await getCurrentCoordinates();
-      const emergency: Emergency = {
-        id: `L-${Date.now().toString().slice(-8)}`,
-        status: 'active',
-        previousOnlineStatus: 'active',
-        startedAt: new Date().toISOString(),
-        location,
-        message: helpMessage || DEFAULT_HELP_MESSAGE,
-        contacts: contacts
-          .filter(
-            (contact) => contact.status === 'ACCEPTED' && contact.eligible,
-          )
-          .map((contact) => ({
-            id: contact.contactId,
-            name: `${contact.counterpart.firstNames} ${contact.counterpart.lastNames}`.trim(),
-            relationship: contact.counterpart.username,
-          })),
-        evidence: [],
-        chat: [],
-      };
-      setState((current) => ({ ...current, activeEmergency: emergency }));
-      return { ok: true };
-    } catch {
-      return { ok: false, reason: 'location' };
+      return await request;
+    } finally {
+      emergencyCreateInFlight.current = null;
     }
-  }, [contacts, hasEligibleContact, helpMessage, requirements]);
-  const setEmergencyStatus = useCallback(
-    (status: 'active' | 'inProgress') =>
-      setState((current) =>
-        current.activeEmergency
-          ? {
-              ...current,
-              activeEmergency: {
-                ...current.activeEmergency,
-                status: requirements.connection ? status : 'offline',
-                previousOnlineStatus: status,
-              },
-            }
-          : current,
-      ),
-    [requirements.connection],
-  );
-  const finishEmergency = useCallback(() => {
-    if (!requirements.connection || !state.activeEmergency) return false;
-    setState((current) => {
-      if (!current.activeEmergency) return current;
-      const finished = {
-        ...current.activeEmergency,
-        status: 'finalized' as const,
-        endedAt: new Date().toISOString(),
-      };
+  }, [hasEligibleContact, helpMessage, refreshContacts, requirements, restoreActiveEmergency]);
+  const finishEmergency = useCallback(async () => {
+    const emergency = state.activeEmergency;
+    if (!emergency) return { ok: false, message: 'No hay una alerta abierta.' };
+    try {
+      await emergencyApi.finish(emergency.id);
+      await stopBackgroundLocation().catch(() => undefined);
+      setState((current) => ({ ...current, activeEmergency: null }));
+      void refreshHistory().catch(() => undefined);
+      return { ok: true };
+    } catch (error) {
       return {
-        ...current,
-        activeEmergency: null,
-        history: [finished, ...current.history],
+        ok: false,
+        message:
+          error instanceof ApiError
+            ? error.message
+            : 'No pudimos confirmar la finalizaciÃ³n. La alerta sigue abierta.',
       };
-    });
-    return true;
-  }, [requirements.connection, state.activeEmergency]);
+    }
+  }, [refreshHistory, state.activeEmergency]);
   const addEvidence = useCallback(
     (uri: string) => {
       if (!requirements.connection || !state.activeEmergency) return false;
@@ -560,6 +794,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       contactsConfirmed,
       contactsError,
       deviceTokenConflict,
+      historyLoading,
+      historyError,
+      historyHasMore,
       signIn,
       signOut,
       acceptTerms,
@@ -575,8 +812,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       refreshRequirements,
       resolveRequirement,
       createEmergency,
-      setEmergencyStatus,
       finishEmergency,
+      refreshHistory,
+      loadMoreHistory,
       addEvidence,
       sendMessage,
     }),
@@ -595,18 +833,22 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       deviceTokenConflict,
       finishEmergency,
       helpMessage,
+      historyError,
+      historyHasMore,
+      historyLoading,
       hydrated,
       performContactAction,
       profile,
       refreshContacts,
+      refreshHistory,
       refreshRequirements,
       registerDeviceToken,
       requestContactChange,
       requirements,
       resolveRequirement,
+      loadMoreHistory,
       sendMessage,
       sessionNotice,
-      setEmergencyStatus,
       setHelpMessage,
       signIn,
       signOut,

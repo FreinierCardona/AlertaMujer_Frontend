@@ -20,6 +20,7 @@ class ApiClient {
   private invalidateSession: (() => void) | null = null;
   private refreshInFlight: Promise<boolean> | null = null;
   setAccessToken(accessToken: string | null) { this.accessToken = accessToken; }
+  hasAccessToken() { return this.accessToken !== null; }
   configureSession(options: { refreshSession: () => Promise<boolean>; invalidateSession: () => void }) { this.refreshSession = options.refreshSession; this.invalidateSession = options.invalidateSession; }
   async request<T>(path: string, options: RequestOptions = {}): Promise<T> {
     if (!appConfig.apiBaseUrl) throw new ApiError('La URL del servicio no está configurada en esta compilación.', 'CONFIGURATION_ERROR');

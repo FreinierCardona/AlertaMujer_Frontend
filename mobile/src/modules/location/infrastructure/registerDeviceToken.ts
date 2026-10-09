@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
-import * as Notifications from 'expo-notifications';
 import { ApiError, deviceTokenApi } from '@core/api';
+import { canUseRemotePush } from '@core/config/appConfig';
 
 export type DeviceTokenRegistration =
   | 'registered'
@@ -9,9 +9,10 @@ export type DeviceTokenRegistration =
 
 /** Registers the native FCM token without logging or storing it in application state. */
 export async function registerDeviceToken(): Promise<DeviceTokenRegistration> {
-  if (Platform.OS !== 'android') return 'unavailable';
+  if (Platform.OS !== 'android' || !canUseRemotePush) return 'unavailable';
 
   try {
+    const Notifications = await import('expo-notifications');
     const permission = await Notifications.getPermissionsAsync();
     if (!permission.granted) return 'unavailable';
 
