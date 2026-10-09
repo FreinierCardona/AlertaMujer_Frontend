@@ -178,6 +178,8 @@ export const es = {
   'emergency.locationSent': 'Ubicación inicial registrada para la alerta.',
   'emergency.locationPending':
     'Ubicación obtenida; envío pendiente por conexión.',
+  'emergency.noLocation': 'No hay una ubicación confirmada en esta sesión.',
+  'emergency.lastSync': 'Última sincronización confirmada: {{value}}',
   'emergency.notificationState': 'Intento de aviso a contactos',
   'emergency.notificationPending': 'Contactos incluidos en esta alerta.',
   'emergency.actions': 'Acciones durante la alerta',
@@ -235,6 +237,7 @@ export const es = {
   'history.contacts': 'Contactos incluidos',
   'history.evidence': 'Evidencias',
   'history.conversation': 'Conversación de solo lectura',
+  'history.loadMore': 'Cargar más',
 } as const;
 
 export type MessageKey = keyof typeof es;
@@ -417,6 +420,8 @@ const en: Record<MessageKey, string> = {
   'emergency.locationSent': 'Initial location registered for the alert.',
   'emergency.locationPending':
     'Location obtained; sending is pending due to connection.',
+  'emergency.noLocation': 'There is no location confirmed in this session.',
+  'emergency.lastSync': 'Last confirmed sync: {{value}}',
   'emergency.notificationState': 'Contact notification attempt',
   'emergency.notificationPending': 'Contacts included in this alert.',
   'emergency.actions': 'Actions during the alert',
@@ -474,6 +479,7 @@ const en: Record<MessageKey, string> = {
   'history.contacts': 'Included contacts',
   'history.evidence': 'Evidence',
   'history.conversation': 'Read-only conversation',
+  'history.loadMore': 'Load more',
 };
 
 const pt: Record<MessageKey, string> = {
@@ -601,6 +607,8 @@ const pt: Record<MessageKey, string> = {
   'message.restoreBody': 'O texto atual será substituído pela mensagem padrão.',
   'emergency.locationSent': 'Localização inicial registrada para o alerta.',
   'emergency.locationPending': 'Localização obtida; envio pendente por falta de conexão.',
+  'emergency.noLocation': 'Não há localização confirmada nesta sessão.',
+  'emergency.lastSync': 'Última sincronização confirmada: {{value}}',
   'emergency.notificationState': 'Tentativa de aviso aos contatos', 'emergency.notificationPending': 'Contatos incluídos neste alerta.',
   'emergency.finishOffline': 'Recupere a conexão antes de solicitar a finalização.',
   'emergency.simulationHelp': 'Atualize o status visível enquanto o alerta estiver aberto.',
@@ -613,6 +621,7 @@ const pt: Record<MessageKey, string> = {
   'evidence.permission': 'É necessária permissão da câmera para tirar uma foto.',
   'evidence.previous': 'Foto anterior', 'evidence.next': 'Próxima foto',
   'evidence.offline': 'Sem conexão: a foto não é marcada como enviada.',
+  'history.loadMore': 'Carregar mais',
 };
 
 const fr: Record<MessageKey, string> = {
@@ -740,6 +749,8 @@ const fr: Record<MessageKey, string> = {
   'message.restoreBody': 'Le texte actuel sera remplacé par le message par défaut.',
   'emergency.locationSent': "Position initiale enregistrée pour l'alerte.",
   'emergency.locationPending': 'Position obtenue ; envoi en attente faute de connexion.',
+  'emergency.noLocation': 'Aucune position n’est confirmée pour cette session.',
+  'emergency.lastSync': 'Dernière synchronisation confirmée : {{value}}',
   'emergency.notificationState': 'Tentative de notification des contacts', 'emergency.notificationPending': 'Contacts inclus dans cette alerte.',
   'emergency.finishOffline': 'Rétablissez la connexion avant de demander la fin.',
   'emergency.simulationHelp': "Mettez à jour le statut visible pendant que l'alerte reste ouverte.",
@@ -748,6 +759,7 @@ const fr: Record<MessageKey, string> = {
   'call.unavailable': "Aucun numéro d'autorité n'est configuré.",
   'call.disclaimer': "L'appel est confirmé sur Android et ne remplace pas le SOS.",
   'chat.localNotice': 'Conversation associée à cette alerte.',
+  'history.loadMore': 'Charger plus',
   'chat.offline': "Hors ligne : le message n'a pas été enregistré ni mis en attente.",
   'evidence.description': "L'autorisation de la caméra est demandée uniquement dans ce parcours.",
   'evidence.permission': "L'autorisation de la caméra est nécessaire pour prendre une photo.",

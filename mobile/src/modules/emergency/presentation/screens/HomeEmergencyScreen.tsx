@@ -18,6 +18,10 @@ import useAppState from '@shell/providers/useAppState';
 import { useAppTheme } from '@shared/theme';
 import { useI18n } from '@shared/i18n';
 import type { DeviceRequirementKey } from '@modules/location/infrastructure/deviceRequirements';
+import {
+  canUseBackgroundLocation,
+  canUseRemotePush,
+} from '@core/config/appConfig';
 
 export default function HomeEmergencyScreen() {
   const router = useRouter();
@@ -44,8 +48,8 @@ export default function HomeEmergencyScreen() {
     contactsConfirmed &&
     contacts.some((contact) => contact.status === 'ACCEPTED' && contact.eligible) &&
     requirements.foreground &&
-    requirements.background &&
-    requirements.notifications &&
+    (!canUseBackgroundLocation || requirements.background) &&
+    (!canUseRemotePush || requirements.notifications) &&
     requirements.gps &&
     requirements.connection;
   const ready = requirementsComplete;
@@ -66,11 +70,11 @@ export default function HomeEmergencyScreen() {
       router.replace(Routes.activeEmergency);
     } else {
       setConfirm(false);
-      setError(result.reason ?? 'error');
+      setError(result.message ?? result.reason ?? 'error');
       void refreshRequirements();
     }
   };
-  const rows: {
+  const allRequirementRows: {
     key: DeviceRequirementKey | 'contacts';
     label: string;
     value: boolean;
@@ -106,6 +110,11 @@ export default function HomeEmergencyScreen() {
       value: requirements.connection,
     },
   ];
+  const rows = allRequirementRows.filter(
+    (row) =>
+      (row.key !== 'background' || canUseBackgroundLocation) &&
+      (row.key !== 'notifications' || canUseRemotePush),
+  );
   const requirementHelp = requirementTarget
     ? t(
         requirementTarget === 'foreground'
@@ -153,9 +162,15 @@ export default function HomeEmergencyScreen() {
         <View style={{ height: spacing.sm }}>
           <StatusBanner
             tone="danger"
-            title={error === 'location' ? t('common.error') : t('home.blocked')}
+            title={
+              error === 'requirements' ? t('home.blocked') : t('common.error')
+            }
             message={
-              error === 'location' ? t('emergency.locationPending') : undefined
+              error === 'location'
+                ? t('emergency.locationPending')
+                : error === 'requirements'
+                  ? undefined
+                  : error
             }
           />
         </View>
