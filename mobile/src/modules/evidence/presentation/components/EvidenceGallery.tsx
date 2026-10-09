@@ -51,7 +51,9 @@ export default function EvidenceGallery({ emergencyId }: { emergencyId: string }
   }, [load]);
 
   if (loading) return <StatusBanner title={t('common.loading')} />;
-  if (error) return <StatusBanner tone="danger" title={t('common.error')} message={error} />;
+  if (error) return <><StatusBanner tone="danger" title={t('common.error')} message={error} />
+    <AppButton title={t('common.retry')} onPress={() => void load()} variant="outline" style={{ marginTop: spacing.sm }} />
+  </>;
   if (items.length === 0) return <StatusBanner title={t('evidence.empty')} />;
   const selected = index === null ? null : items[index];
 
