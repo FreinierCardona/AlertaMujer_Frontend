@@ -24,7 +24,10 @@ export default function HomeEmergencyScreen() {
   const {
     profile,
     contacts,
+    contactsConfirmed,
     requirements,
+    registerDeviceToken,
+    refreshContacts,
     refreshRequirements,
     resolveRequirement,
     createEmergency,
@@ -38,7 +41,8 @@ export default function HomeEmergencyScreen() {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const requirementsComplete =
-    contacts.length > 0 &&
+    contactsConfirmed &&
+    contacts.some((contact) => contact.status === 'ACCEPTED' && contact.eligible) &&
     requirements.foreground &&
     requirements.background &&
     requirements.notifications &&
@@ -49,7 +53,9 @@ export default function HomeEmergencyScreen() {
   useFocusEffect(
     useCallback(() => {
       void refreshRequirements();
-    }, [refreshRequirements]),
+      void refreshContacts().catch(() => undefined);
+      void registerDeviceToken();
+    }, [refreshContacts, refreshRequirements, registerDeviceToken]),
   );
   const activate = async () => {
     setCreating(true);
@@ -72,7 +78,11 @@ export default function HomeEmergencyScreen() {
     {
       key: 'contacts',
       label: t('requirements.contacts'),
-      value: contacts.length > 0,
+      value:
+        contactsConfirmed &&
+        contacts.some(
+          (contact) => contact.status === 'ACCEPTED' && contact.eligible,
+        ),
     },
     {
       key: 'foreground',
