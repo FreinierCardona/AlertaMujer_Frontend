@@ -1639,6 +1639,13 @@ textarea:focus-visible {
     );
   background-size: 80px 140px;
 }
+.map-frame {
+  display: block;
+  width: 100%;
+  min-height: 290px;
+  border: 0;
+  background: var(--surface-alt);
+}
 .map-road {
   width: 120%;
   height: 25px;
