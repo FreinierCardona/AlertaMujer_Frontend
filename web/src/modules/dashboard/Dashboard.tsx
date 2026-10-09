@@ -1,5 +1,8 @@
 // Resume los cuatro estados de alerta y ofrece acceso directo a registros recientes.
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigation } from '../../app/navigation';
+import { ApiError } from '../../shared/api/client';
+import { adminEmergencyApi, type RemoteDashboard } from '../../shared/api/emergencyApi';
 import { useWebState } from '../../shared/data/WebStateContext';
 import { usePreferences } from '../../shared/preferences/PreferencesContext';
 import type { AlertStatus } from '../../shared/types/models';
@@ -10,63 +13,36 @@ import {
   StatusBadge,
 } from '../../shared/ui/components';
 import { Icon, type IconName } from '../../shared/ui/Icon';
-import { formatDateTime } from '../../shared/utils/format';
-
-const cards: { status: AlertStatus; icon: IconName }[] = [
-  { status: 'active', icon: 'alert' },
-  { status: 'inProgress', icon: 'spark' },
-  { status: 'offline', icon: 'warning' },
-  { status: 'finished', icon: 'check' },
+const cards: { status: AlertStatus; icon: IconName; count: keyof RemoteDashboard }[] = [
+  { status: 'active', icon: 'alert', count: 'activeCount' },
+  { status: 'inProgress', icon: 'spark', count: 'inProgressCount' },
+  { status: 'offline', icon: 'warning', count: 'offlineCount' },
 ];
 
 export function Dashboard() {
-  const { t, language } = usePreferences();
-  const { alerts, setFilters } = useWebState();
-  const { navigate, search } = useNavigation();
-  const view = new URLSearchParams(search).get('view');
-  const latestUpdate = [...alerts].sort(
-    (a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt),
-  )[0]?.updatedAt;
+  const { t } = usePreferences();
+  const { setFilters } = useWebState();
+  const { navigate } = useNavigation();
+  const [summary, setSummary] = useState<RemoteDashboard | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<'denied' | 'error' | null>(null);
 
-  if (view === 'loading')
-    return (
-      <>
-        <PageHeader title={t('dashboard')} />
-        <StatePanel
-          kind="loading"
-          message={t('loading')}
-        />
-      </>
-    );
-  if (view === 'error')
-    return (
-      <>
-        <PageHeader title={t('dashboard')} />
-        <StatePanel
-          kind="error"
-          title={t('error')}
-          message={t('alertsError')}
-          action={
-            <Button
-              icon="refresh"
-              onClick={() => navigate('/admin/dashboard', { replace: true })}
-            >
-              {t('retry')}
-            </Button>
-          }
-        />
-      </>
-    );
-  if (view === 'empty')
-    return (
-      <>
-        <PageHeader title={t('dashboard')} />
-        <StatePanel
-          kind="empty"
-          message={t('noAlerts')}
-        />
-      </>
-    );
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      setSummary(await adminEmergencyApi.dashboard());
+    } catch (cause) {
+      setError(cause instanceof ApiError && cause.status === 403 ? 'denied' : 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => void load(), 0);
+    return () => window.clearTimeout(timer);
+  }, [load]);
 
   const openStatus = (status: AlertStatus) => {
     setFilters({ alertStatus: status, alertPage: 1 });
@@ -77,107 +53,19 @@ export function Dashboard() {
       <PageHeader
         eyebrow={t('operationalSummary')}
         title={t('dashboard')}
-        description={
-          latestUpdate
-            ? `${t('lastUpdate')}: ${formatDateTime(latestUpdate, language)}`
-            : undefined
-        }
+        description={t('lastUpdate')}
       />
-      {view === 'partial' && (
-        <StatePanel
-          kind="warning"
-          message={t('partialData')}
-        />
-      )}
-      <section
-        className="summary-grid"
-        aria-label={t('operationalSummary')}
-      >
-        {cards.map((card) => {
-          const count = alerts.filter(
-            (alert) => alert.status === card.status,
-          ).length;
-          return (
-            <button
-              type="button"
-              key={card.status}
-              className={`summary-card summary-card--${card.status}`}
-              onClick={() => openStatus(card.status)}
-            >
-              <span className="summary-card__icon">
-                <Icon name={card.icon} />
-              </span>
-              <span className="summary-card__number">{count}</span>
-              <span className="summary-card__label">
-                <StatusBadge status={card.status} />
-              </span>
-              <Icon
-                name="chevronRight"
-                size={18}
-              />
-            </button>
-          );
-        })}
-      </section>
-      <section className="panel-card">
-        <header className="panel-card__header">
-          <div>
-            <p className="eyebrow">{t('alerts')}</p>
-            <h2>{t('recentAlerts')}</h2>
-          </div>
-          <button
-            type="button"
-            className="text-button"
-            onClick={() => navigate('/admin/alertas')}
-          >
-            {t('viewAll')}{' '}
-            <Icon
-              name="chevronRight"
-              size={17}
-            />
-          </button>
-        </header>
-        <div className="responsive-table">
-          <table>
-            <thead>
-              <tr>
-                <th>{t('status')}</th>
-                <th>{t('user')}</th>
-                <th>{t('startDate')}</th>
-                <th>{t('lastLocation')}</th>
-                <th>
-                  <span className="sr-only">{t('actions')}</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {alerts.slice(0, 4).map((alert) => (
-                <tr key={alert.id}>
-                  <td>
-                    <StatusBadge status={alert.status} />
-                  </td>
-                  <td>
-                    <strong>{alert.userName}</strong>
-                    <span className="cell-meta">{alert.id}</span>
-                  </td>
-                  <td>{formatDateTime(alert.startedAt, language)}</td>
-                  <td>{alert.locationLabel}</td>
-                  <td>
-                    <button
-                      type="button"
-                      className="icon-button table-action"
-                      onClick={() => navigate(`/admin/alertas/${alert.id}`)}
-                      aria-label={`${t('viewDetail')} ${alert.id}`}
-                    >
-                      <Icon name="eye" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      {loading ? <StatePanel kind="loading" message={t('loading')} /> : null}
+      {error === 'denied' ? <StatePanel kind="denied" title={t('accessDenied')} message={t('accessDeniedText')} /> : null}
+      {error === 'error' ? <StatePanel kind="error" title={t('error')} message={t('alertsError')} action={<Button icon="refresh" onClick={() => void load()}>{t('retry')}</Button>} /> : null}
+      {summary ? <section className="summary-grid" aria-label={t('operationalSummary')}>
+        {cards.map((card) => <button type="button" key={card.status} className={`summary-card summary-card--${card.status}`} onClick={() => openStatus(card.status)}>
+          <span className="summary-card__icon"><Icon name={card.icon} /></span>
+          <span className="summary-card__number">{summary[card.count]}</span>
+          <span className="summary-card__label"><StatusBadge status={card.status} /></span>
+          <Icon name="chevronRight" size={18} />
+        </button>)}
+      </section> : null}
     </div>
   );
 }
