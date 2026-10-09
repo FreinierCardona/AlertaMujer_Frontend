@@ -11,6 +11,18 @@ npm start
 
 Comandos adicionales: `npm run android`, `npm run ios`, `npm run typecheck` y `npm run lint`.
 
+### Expo Go (limitación temporal de push remoto)
+
+Para iniciar con Expo Go, configura localmente `EXPO_PUBLIC_ENABLE_REMOTE_PUSH=false`
+en `.env`. Así se conserva `EXPO_PUBLIC_API_BASE_URL` y todos los flujos HTTP
+(autenticación, OTP por correo, perfil y contactos), pero no se carga ni se usa
+`expo-notifications` para registrar un token FCM o recibir push remoto.
+
+El registro remoto sigue deshabilitado si la app detecta Expo Go, aunque la
+variable se establezca por error en `true`. Activa
+`EXPO_PUBLIC_ENABLE_REMOTE_PUSH=true` solamente al generar un development build
+con la configuración nativa de FCM para implementar o validar esa HU.
+
 ## Estructura
 
 ```text
