@@ -3,7 +3,9 @@ export const isEmail = (value: string) =>
   /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value.trim());
 export const isPersonName = (value: string) =>
   /^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+(?:\s[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+)*$/.test(value.trim());
-export const isPhone = (value: string) => /^\d{10}$/.test(value.trim());
+export const isPhone = (value: string) => /^3\d{9}$/.test(value.trim());
+export const isUsername = (value: string) =>
+  /^@[a-z0-9](?:[a-z0-9_]{1,18}[a-z0-9])$/.test(value.trim());
 export const isPassword = (value: string) =>
   value.length >= 12 &&
   /[A-ZÁÉÍÓÚÜÑ]/.test(value) &&

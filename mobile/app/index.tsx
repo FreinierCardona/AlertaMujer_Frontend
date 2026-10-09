@@ -6,7 +6,7 @@ import useAppState from '@shell/providers/useAppState';
 import { useAppTheme } from '@shared/theme';
 import { useI18n } from '@shared/i18n';
 export default function Index() {
-  const { hydrated, sessionEmail, activeEmergency } = useAppState();
+  const { hydrated, isAuthenticated, termsPending, activeEmergency } = useAppState();
   const theme = useAppTheme();
   const i18n = useI18n();
   if (!hydrated || !theme.ready || !i18n.ready)
@@ -37,11 +37,13 @@ export default function Index() {
   return (
     <Redirect
       href={
-        activeEmergency
+        !isAuthenticated
+          ? Routes.login
+          : termsPending
+            ? Routes.terms
+            : activeEmergency
           ? Routes.activeEmergency
-          : sessionEmail
-            ? Routes.home
-            : Routes.login
+          : Routes.home
       }
     />
   );

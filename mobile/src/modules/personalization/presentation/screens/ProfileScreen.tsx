@@ -16,13 +16,17 @@ type ProfileRoute =
   | typeof Routes.editProfile
   | typeof Routes.helpMessage
   | typeof Routes.language
-  | typeof Routes.appearance;
+  | typeof Routes.appearance
+  | typeof Routes.changePassword
+  | typeof Routes.deleteAccount;
 interface ProfileOption {
   icon:
     | 'create-outline'
     | 'chatbox-ellipses-outline'
     | 'language-outline'
-    | 'contrast-outline';
+    | 'contrast-outline'
+    | 'key-outline'
+    | 'trash-outline';
   label: string;
   value?: string;
   route: ProfileRoute;
@@ -52,6 +56,11 @@ export default function ProfileScreen() {
       route: Routes.helpMessage,
     },
     {
+      icon: 'key-outline',
+      label: 'Cambiar contraseña',
+      route: Routes.changePassword,
+    },
+    {
       icon: 'language-outline',
       label: t('profile.language'),
       value: languageLabels[language],
@@ -62,6 +71,11 @@ export default function ProfileScreen() {
       label: t('profile.appearance'),
       value: mode === 'light' ? t('appearance.light') : t('appearance.dark'),
       route: Routes.appearance,
+    },
+    {
+      icon: 'trash-outline',
+      label: 'Eliminar cuenta',
+      route: Routes.deleteAccount,
     },
   ];
   return (
@@ -88,6 +102,7 @@ export default function ProfileScreen() {
             </Text>
             <Text style={{ color: colors.textMedium }}>{profile.email}</Text>
             <Text style={{ color: colors.textMedium }}>{profile.phone}</Text>
+            <Text style={{ color: colors.textMedium }}>{profile.username}</Text>
           </View>
         </View>
       </AppCard>

@@ -13,7 +13,7 @@ import { useI18n } from '@shared/i18n';
 function RootNavigator() {
   const { colors, resolvedMode, ready: themeReady } = useAppTheme();
   const { ready: languageReady } = useI18n();
-  const { hydrated, sessionEmail, activeEmergency } = useAppState();
+  const { hydrated, isAuthenticated, termsPending, activeEmergency } = useAppState();
   const segments = useSegments();
   const router = useRouter();
   useEffect(() => {
@@ -24,14 +24,19 @@ function RootNavigator() {
       currentPath === 'evidence/capture' ||
       currentPath === 'emergency/active' ||
       currentPath.startsWith('emergency/chat');
-    if (activeEmergency && !emergencyContext) {
+    const onTerms = currentPath === 'auth/terms';
+    if (isAuthenticated && termsPending && !onTerms) {
+      router.replace(Routes.terms);
+      return;
+    }
+    if (activeEmergency && !emergencyContext && !termsPending) {
       router.replace(Routes.activeEmergency);
       return;
     }
-    if (!sessionEmail && root !== 'auth') {
+    if (!isAuthenticated && root !== 'auth') {
       router.replace(Routes.login);
     }
-    if (sessionEmail && root === 'auth')
+    if (isAuthenticated && !termsPending && root === 'auth')
       router.replace(activeEmergency ? Routes.activeEmergency : Routes.home);
   }, [
     activeEmergency,
@@ -39,7 +44,8 @@ function RootNavigator() {
     languageReady,
     router,
     segments,
-    sessionEmail,
+    isAuthenticated,
+    termsPending,
     themeReady,
   ]);
   return (
