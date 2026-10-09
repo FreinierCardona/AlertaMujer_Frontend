@@ -4,11 +4,17 @@ export class ApiError extends Error {
     readonly code: string,
     readonly status?: number,
     readonly requestId?: string,
+    readonly fields: ApiFieldError[] = [],
   ) {
     super(message);
     this.name = 'ApiError';
   }
 }
+
+export type ApiFieldError = {
+  field?: string;
+  message?: string;
+};
 
 type RequestOptions = {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -16,7 +22,12 @@ type RequestOptions = {
   authenticated?: boolean;
   retrying?: boolean;
 };
-type BackendError = { code?: string; message?: string; requestId?: string };
+type BackendError = {
+  code?: string;
+  message?: string;
+  requestId?: string;
+  fields?: ApiFieldError[];
+};
 const BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '');
 const WS_BASE_URL = (import.meta.env.VITE_WS_BASE_URL ?? '').replace(/\/$/, '');
 const timeoutValue = Number(import.meta.env.VITE_API_TIMEOUT_MS ?? 15_000);
@@ -111,6 +122,7 @@ function backendError(payload: unknown, status: number) {
     error.code ?? `HTTP_${status}`,
     status,
     error.requestId,
+    Array.isArray(error.fields) ? error.fields : [],
   );
 }
 
