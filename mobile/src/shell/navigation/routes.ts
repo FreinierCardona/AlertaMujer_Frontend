@@ -6,6 +6,7 @@ const Routes = {
   forgotPassword: '/auth/forgot-password',
   verifyCode: '/auth/verify-code',
   resetPassword: '/auth/reset-password',
+  terms: '/auth/terms',
   home: '/tabs/home',
   contacts: '/tabs/contacts',
   history: '/tabs/history',
@@ -17,6 +18,8 @@ const Routes = {
   language: '/profile/language',
   appearance: '/profile/appearance',
   profileVerify: '/profile/verify',
+  changePassword: '/profile/change-password',
+  deleteAccount: '/profile/delete-account',
   evidenceCapture: '/evidence/capture',
 } as const;
 export default Routes;
