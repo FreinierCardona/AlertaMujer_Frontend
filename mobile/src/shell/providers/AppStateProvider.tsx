@@ -17,7 +17,7 @@ import type {
   UserProfile,
 } from '@core/api';
 import { tokenStorage } from '@core/api/tokenStorage';
-import { canUseBackgroundLocation, canUseRemotePush } from '@core/config/appConfig';
+import { canUseBackgroundLocation } from '@core/config/appConfig';
 import {
   setLocationSyncListener,
   startBackgroundLocation,
@@ -33,7 +33,6 @@ import type {
   DeviceRequirementKey,
   DeviceRequirements,
 } from '@modules/location/infrastructure/deviceRequirements';
-import { registerDeviceToken as registerNativeDeviceToken } from '@modules/location/infrastructure/registerDeviceToken';
 import { useI18n } from '@shared/i18n';
 
 const CONTACTS_PAGE_SIZE = 50;
@@ -141,7 +140,6 @@ interface AppStateValue extends StoredState {
   contactsLoading: boolean;
   contactsConfirmed: boolean;
   contactsError: string | null;
-  deviceTokenConflict: boolean;
   historyLoading: boolean;
   historyError: string | null;
   historyHasMore: boolean;
@@ -171,7 +169,6 @@ interface AppStateValue extends StoredState {
     contactId: string,
     action: ContactAction,
   ) => Promise<void>;
-  registerDeviceToken: () => Promise<void>;
   refreshRequirements: () => Promise<void>;
   resolveRequirement: (key: DeviceRequirementKey) => Promise<void>;
   createEmergency: () => Promise<{
@@ -211,7 +208,6 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const [contactsLoading, setContactsLoading] = useState(false);
   const [contactsConfirmed, setContactsConfirmed] = useState(false);
   const [contactsError, setContactsError] = useState<string | null>(null);
-  const [deviceTokenConflict, setDeviceTokenConflict] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [historyPage, setHistoryPage] = useState(-1);
@@ -256,11 +252,6 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     } finally {
       contactsRefreshInFlight.current = null;
     }
-  }, []);
-
-  const registerDeviceToken = useCallback(async () => {
-    const result = await registerNativeDeviceToken();
-    setDeviceTokenConflict(result === 'conflict');
   }, []);
 
   const fetchHistoryPage = useCallback(async (page: number, append: boolean) => {
@@ -316,7 +307,6 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     setContacts([]);
     setContactsConfirmed(false);
     setContactsError(null);
-    setDeviceTokenConflict(false);
     setState(initialState);
     setHistoryPage(-1);
     setHistoryHasMore(true);
@@ -356,9 +346,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         // La sesiÃ³n es vÃ¡lida; el aviso se expone sin sustituirla por una sesiÃ³n local.
       }
       void refreshContacts().catch(() => undefined);
-      void registerDeviceToken();
     },
-    [refreshContacts, registerDeviceToken, restoreActiveEmergency],
+    [refreshContacts, restoreActiveEmergency],
   );
 
   const renewSession = useCallback(async () => {
@@ -481,12 +470,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     async (key: DeviceRequirementKey) => {
       try {
         setRequirements(await requestDeviceRequirement(key));
-        if (key === 'notifications') void registerDeviceToken();
       } catch {
         await refreshRequirements();
       }
     },
-    [refreshRequirements, registerDeviceToken],
+    [refreshRequirements],
   );
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener((network) => {
@@ -630,7 +618,6 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         !hasEligibleContact ||
         !requirements.foreground ||
         (canUseBackgroundLocation && !requirements.background) ||
-        (canUseRemotePush && !requirements.notifications) ||
         !requirements.gps ||
         !requirements.connection
       ) {
@@ -725,7 +712,6 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       contactsLoading,
       contactsConfirmed,
       contactsError,
-      deviceTokenConflict,
       historyLoading,
       historyError,
       historyHasMore,
@@ -740,7 +726,6 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       deleteAccount,
       refreshContacts,
       performContactAction,
-      registerDeviceToken,
       refreshRequirements,
       resolveRequirement,
       createEmergency,
@@ -759,7 +744,6 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       contactsLoading,
       createEmergency,
       deleteAccount,
-      deviceTokenConflict,
       finishEmergency,
       helpMessage,
       historyError,
@@ -771,7 +755,6 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       refreshContacts,
       refreshHistory,
       refreshRequirements,
-      registerDeviceToken,
       requestContactChange,
       requirements,
       resolveRequirement,
