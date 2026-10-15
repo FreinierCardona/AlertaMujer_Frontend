@@ -13,6 +13,7 @@ type Method = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
 type RequestOptions = { method?: Method; body?: unknown; authenticated?: boolean; retrying?: boolean };
 type BackendError = { code?: string; message?: string; requestId?: string; fields?: { field?: string; message?: string }[] | Record<string, string> };
 const TIMEOUT_MS = 15_000;
+const FILE_UPLOAD_TIMEOUT_MS = 30_000;
 
 class ApiClient {
   private accessToken: string | null = null;
@@ -56,7 +57,7 @@ class ApiClient {
     if (!appConfig.apiBaseUrl) throw new ApiError('La URL del servicio no está configurada en esta compilación.', 'CONFIGURATION_ERROR');
     const requestId = createRequestId();
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    const timeout = setTimeout(() => controller.abort(), FILE_UPLOAD_TIMEOUT_MS);
     try {
       const response = await fetch(`${appConfig.apiBaseUrl.replace(/\/$/, '')}${path}`, {
         method: 'POST',
