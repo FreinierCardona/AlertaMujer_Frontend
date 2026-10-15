@@ -39,4 +39,7 @@ npm run lint
 
 ## Alcance
 
-Los proyectos implementan interfaz, navegación, preferencias locales, validaciones de frontend y recursos visuales. No incluyen backend, base de datos ni servicios externos reales.
+Los proyectos implementan interfaz, navegación, preferencias, validaciones de
+frontend y recursos visuales. No incluyen ni son propietarios del Backend o de
+la base de datos; Mobile consume sus contratos mediante configuración de
+entorno y la evidencia de integración se documenta en `mobile/README.md`.

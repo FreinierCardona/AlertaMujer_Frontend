@@ -23,4 +23,9 @@ export type { EvidenceResponse } from './evidenceApi';
 export { chatApi } from './chatApi';
 export type { ChatMessageResponse } from './chatApi';
 export { contactAlertsApi } from './contactAlertsApi';
-export type { ContactAlertStatus, ContactAlertSummary } from './contactAlertsApi';
+export type {
+  ContactAlertDetail,
+  ContactAlertLocation,
+  ContactAlertStatus,
+  ContactAlertSummary,
+} from './contactAlertsApi';
