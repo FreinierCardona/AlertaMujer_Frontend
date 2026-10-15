@@ -34,6 +34,7 @@ export default function ContactsScreen() {
   const { colors, spacing, typography } = useAppTheme();
   const [actionInFlight, setActionInFlight] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -44,8 +45,14 @@ export default function ContactsScreen() {
   const runAction = async (contact: ContactRelationship, action: ContactAction) => {
     setActionInFlight(`${contact.contactId}:${action}`);
     setActionError(null);
+    setActionSuccess(null);
     try {
       await performContactAction(contact.contactId, action);
+      setActionSuccess(action === 'ACCEPT'
+        ? 'El contacto fue aceptado. Ya puede participar en las alertas autorizadas.'
+        : action === 'REJECT'
+          ? 'La invitación fue rechazada. No se creó una relación de contacto.'
+          : 'La invitación se envió de nuevo correctamente.');
     } catch (error) {
       setActionError(error instanceof Error ? error.message : t('common.error'));
     } finally {
@@ -73,6 +80,11 @@ export default function ContactsScreen() {
             title={t('common.error')}
             message={actionError}
           />
+        </View>
+      ) : null}
+      {actionSuccess ? (
+        <View style={{ marginTop: spacing.sm }}>
+          <StatusBanner tone="success" title="Acción realizada" message={actionSuccess} />
         </View>
       ) : null}
       {contactsLoading && contacts.length === 0 ? (

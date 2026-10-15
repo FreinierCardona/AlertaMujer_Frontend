@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test:evidence": "node --experimental-strip-types --test test/evidenceLimits.test.ts",
     "test:remove-push": "node --test test/removePush.test.mjs",
-    "test:contact-alerts": "node --experimental-strip-types --test test/contactAlerts.test.ts"
+    "test:contact-alerts": "node --experimental-strip-types --test test/contactAlerts.test.ts test/contactAlertDetail.test.ts"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

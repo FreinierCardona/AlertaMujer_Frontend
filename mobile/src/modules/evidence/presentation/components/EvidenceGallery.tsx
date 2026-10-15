@@ -1,15 +1,25 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { ApiError, evidenceApi, evidenceDataUri } from '@core/api';
+import { ApiError, contactAlertsApi, evidenceApi } from '@core/api';
 import type { EvidenceResponse } from '@core/api';
 import { useAppTheme } from '@shared/theme';
 import { useI18n } from '@shared/i18n';
 import StatusBanner from '@shared/ui/StatusBanner';
 import AppButton from '@shared/ui/AppButton';
 
-/** Lists only metadata confirmed by the Backend and downloads protected bytes in memory. */
-export default function EvidenceGallery({ emergencyId }: { emergencyId: string }) {
+type EvidenceAccess = 'owner' | 'contact';
+
+/** Lists only Backend-confirmed metadata and keeps protected bytes in component memory. */
+export default function EvidenceGallery({
+  emergencyId,
+  access = 'owner',
+  onAccessRevoked,
+}: {
+  emergencyId: string;
+  access?: EvidenceAccess;
+  onAccessRevoked?: () => void;
+}) {
   const [index, setIndex] = useState<number | null>(null);
   const [items, setItems] = useState<EvidenceResponse[]>([]);
   const [uris, setUris] = useState<Record<string, string>>({});
@@ -19,15 +29,27 @@ export default function EvidenceGallery({ emergencyId }: { emergencyId: string }
   const { colors, spacing } = useAppTheme();
   const { t } = useI18n();
 
+  const notifyRevocation = useCallback((cause: unknown) => {
+    if (cause instanceof ApiError && (cause.status === 403 || cause.status === 404)) {
+      onAccessRevoked?.();
+      return true;
+    }
+    return false;
+  }, [onAccessRevoked]);
+
   const loadImage = useCallback(async (evidenceId: string) => {
     try {
-      const uri = await evidenceDataUri(evidenceId);
+      const blob = access === 'contact'
+        ? await contactAlertsApi.evidenceContent(emergencyId, evidenceId)
+        : await evidenceApi.content(evidenceId);
+      const uri = await blobDataUri(blob);
       setUris((current) => ({ ...current, [evidenceId]: uri }));
       setFailed((current) => current.filter((id) => id !== evidenceId));
-    } catch {
+    } catch (cause) {
+      if (notifyRevocation(cause)) return;
       setFailed((current) => current.includes(evidenceId) ? current : [...current, evidenceId]);
     }
-  }, []);
+  }, [access, emergencyId, notifyRevocation]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -35,15 +57,18 @@ export default function EvidenceGallery({ emergencyId }: { emergencyId: string }
     setUris({});
     setFailed([]);
     try {
-      const response = await evidenceApi.list(emergencyId);
+      const response = access === 'contact'
+        ? await contactAlertsApi.evidences(emergencyId)
+        : await evidenceApi.list(emergencyId);
       setItems(response);
       void Promise.all(response.map((item) => loadImage(item.evidenceId)));
     } catch (cause) {
+      if (notifyRevocation(cause)) return;
       setError(cause instanceof ApiError ? cause.message : t('common.error'));
     } finally {
       setLoading(false);
     }
-  }, [emergencyId, loadImage, t]);
+  }, [access, emergencyId, loadImage, notifyRevocation, t]);
 
   useEffect(() => {
     const timer = setTimeout(() => void load(), 0);
@@ -105,6 +130,17 @@ export default function EvidenceGallery({ emergencyId }: { emergencyId: string }
       </Modal>
     </>
   );
+}
+
+function blobDataUri(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('No fue posible leer la fotografía protegida.'));
+    reader.onloadend = () => typeof reader.result === 'string'
+      ? resolve(reader.result)
+      : reject(new Error('No fue posible leer la fotografía protegida.'));
+    reader.readAsDataURL(blob);
+  });
 }
 
 const styles = StyleSheet.create({

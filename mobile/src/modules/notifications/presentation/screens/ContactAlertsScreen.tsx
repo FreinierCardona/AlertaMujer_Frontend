@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { contactAlertsApi } from '@core/api/contactAlertsApi';
 import type { ContactAlertSummary } from '@core/api/contactAlertsApi';
 import { authorizedOpenAlerts } from '@modules/notifications/application/contactAlerts';
@@ -14,6 +14,7 @@ import { useI18n } from '@shared/i18n';
 import { useAppTheme } from '@shared/theme';
 
 export default function ContactAlertsScreen() {
+  const router = useRouter();
   const { t } = useI18n();
   const { colors, spacing, typography } = useAppTheme();
   const [alerts, setAlerts] = useState<ContactAlertSummary[]>([]);
@@ -46,7 +47,13 @@ export default function ContactAlertsScreen() {
           <AppCard key={alert.emergencyId} style={{ marginBottom: spacing.md }}>
             <View style={styles.cardHeader}><Ionicons name="warning-outline" size={25} color={colors.danger} /><View style={{ flex: 1 }}><Text style={{ color: colors.textDark, fontSize: typography.md, fontWeight: typography.bold }}>{alert.title}</Text><Text style={{ color: colors.danger, fontSize: typography.sm, fontWeight: typography.semiBold }}>{t(`notifications.status.${alert.status}`)}</Text></View></View>
             <Text style={{ color: colors.textMedium, marginTop: spacing.sm }}>{alert.message}</Text>
-            <AppButton title={t('notifications.details')} onPress={() => undefined} disabled variant="outline" style={{ marginTop: spacing.md }} accessibilityHint={t('notifications.detailsUnavailable')} />
+            <AppButton
+              title={t('notifications.details')}
+              onPress={() => router.push({ pathname: '/notifications/[id]', params: { id: alert.emergencyId } })}
+              variant="outline"
+              style={{ marginTop: spacing.md }}
+              accessibilityHint={t('notifications.detailsHint')}
+            />
           </AppCard>
         )) : null}
       </ScrollView>

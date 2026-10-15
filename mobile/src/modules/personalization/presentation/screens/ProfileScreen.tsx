@@ -2,11 +2,12 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import AppScreen from '@shared/ui/AppScreen';
 import AppCard from '@shared/ui/AppCard';
 import ScreenHeader from '@shared/ui/ScreenHeader';
 import ConfirmModal from '@shared/ui/ConfirmModal';
+import StatusBanner from '@shared/ui/StatusBanner';
 import Routes from '@shell/navigation/routes';
 import useAppState from '@shell/providers/useAppState';
 import { useAppTheme } from '@shared/theme';
@@ -34,6 +35,7 @@ interface ProfileOption {
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const { notice } = useLocalSearchParams<{ notice?: 'phoneUpdated' }>();
   const { profile, signOut } = useAppState();
   const { language, t } = useI18n();
   const { mode, colors, spacing, typography } = useAppTheme();
@@ -81,6 +83,13 @@ export default function ProfileScreen() {
   return (
     <AppScreen>
       <ScreenHeader title={t('profile.title')} />
+      {notice === 'phoneUpdated' ? (
+        <StatusBanner
+          tone="success"
+          title="Teléfono actualizado"
+          message="Tu número fue confirmado y ya está asociado a tu cuenta."
+        />
+      ) : null}
       <AppCard>
         <View style={styles.identity}>
           <View style={[styles.avatar, { backgroundColor: colors.cardPurple }]}>
@@ -183,7 +192,7 @@ export default function ProfileScreen() {
         onConfirm={() => {
           setLogout(false);
           signOut();
-          router.replace(Routes.login);
+          router.replace({ pathname: Routes.login, params: { notice: 'signedOut' } });
         }}
       />
     </AppScreen>
