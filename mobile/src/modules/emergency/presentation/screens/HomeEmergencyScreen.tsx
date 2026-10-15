@@ -20,7 +20,6 @@ import { useI18n } from '@shared/i18n';
 import type { DeviceRequirementKey } from '@modules/location/infrastructure/deviceRequirements';
 import {
   canUseBackgroundLocation,
-  canUseRemotePush,
 } from '@core/config/appConfig';
 
 export default function HomeEmergencyScreen() {
@@ -30,7 +29,6 @@ export default function HomeEmergencyScreen() {
     contacts,
     contactsConfirmed,
     requirements,
-    registerDeviceToken,
     refreshContacts,
     refreshRequirements,
     resolveRequirement,
@@ -49,7 +47,6 @@ export default function HomeEmergencyScreen() {
     contacts.some((contact) => contact.status === 'ACCEPTED' && contact.eligible) &&
     requirements.foreground &&
     (!canUseBackgroundLocation || requirements.background) &&
-    (!canUseRemotePush || requirements.notifications) &&
     requirements.gps &&
     requirements.connection;
   const ready = requirementsComplete;
@@ -58,8 +55,7 @@ export default function HomeEmergencyScreen() {
     useCallback(() => {
       void refreshRequirements();
       void refreshContacts().catch(() => undefined);
-      void registerDeviceToken();
-    }, [refreshContacts, refreshRequirements, registerDeviceToken]),
+    }, [refreshContacts, refreshRequirements]),
   );
   const activate = async () => {
     setCreating(true);
@@ -98,11 +94,6 @@ export default function HomeEmergencyScreen() {
       label: t('requirements.background'),
       value: requirements.background,
     },
-    {
-      key: 'notifications',
-      label: t('requirements.notifications'),
-      value: requirements.notifications,
-    },
     { key: 'gps', label: t('requirements.gps'), value: requirements.gps },
     {
       key: 'connection',
@@ -112,8 +103,7 @@ export default function HomeEmergencyScreen() {
   ];
   const rows = allRequirementRows.filter(
     (row) =>
-      (row.key !== 'background' || canUseBackgroundLocation) &&
-      (row.key !== 'notifications' || canUseRemotePush),
+      row.key !== 'background' || canUseBackgroundLocation,
   );
   const requirementHelp = requirementTarget
     ? t(
@@ -121,9 +111,7 @@ export default function HomeEmergencyScreen() {
           ? 'requirements.foregroundHelp'
           : requirementTarget === 'background'
             ? 'requirements.backgroundHelp'
-            : requirementTarget === 'notifications'
-              ? 'requirements.notificationsHelp'
-              : 'requirements.gpsHelp',
+            : 'requirements.gpsHelp',
       )
     : '';
   return (

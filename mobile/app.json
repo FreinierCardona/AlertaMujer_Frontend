@@ -29,7 +29,6 @@
           "isAndroidForegroundServiceEnabled": true
         }
       ],
-      "expo-notifications",
       [
         "expo-image-picker",
         {
