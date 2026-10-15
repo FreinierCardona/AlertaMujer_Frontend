@@ -21,5 +21,6 @@ const Routes = {
   changePassword: '/profile/change-password',
   deleteAccount: '/profile/delete-account',
   evidenceCapture: '/evidence/capture',
+  notifications: '/notifications',
 } as const;
 export default Routes;
