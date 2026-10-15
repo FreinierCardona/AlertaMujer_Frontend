@@ -21,6 +21,8 @@ import type { DeviceRequirementKey } from '@modules/location/infrastructure/devi
 import {
   canUseBackgroundLocation,
 } from '@core/config/appConfig';
+import { contactAlertsApi } from '@core/api/contactAlertsApi';
+import { authorizedOpenAlerts } from '@modules/notifications/application/contactAlerts';
 
 export default function HomeEmergencyScreen() {
   const router = useRouter();
@@ -42,6 +44,7 @@ export default function HomeEmergencyScreen() {
     useState<DeviceRequirementKey | null>(null);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasContactAlerts, setHasContactAlerts] = useState(false);
   const requirementsComplete =
     contactsConfirmed &&
     contacts.some((contact) => contact.status === 'ACCEPTED' && contact.eligible) &&
@@ -55,6 +58,9 @@ export default function HomeEmergencyScreen() {
     useCallback(() => {
       void refreshRequirements();
       void refreshContacts().catch(() => undefined);
+      void contactAlertsApi.list().then((page) => {
+        setHasContactAlerts(authorizedOpenAlerts(page.items).length > 0);
+      }).catch(() => setHasContactAlerts(false));
     }, [refreshContacts, refreshRequirements]),
   );
   const activate = async () => {
@@ -116,17 +122,30 @@ export default function HomeEmergencyScreen() {
     : '';
   return (
     <AppScreen>
-      <Text
-        style={{
-          color: colors.primary,
-          fontSize: typography.xl,
-          fontWeight: typography.bold,
-        }}
-      >
-        {t('home.hello', {
-          name: profile.name || t('profile.defaultName'),
-        })}
-      </Text>
+      <View style={styles.homeHeader}>
+        <Text
+          style={{
+            color: colors.primary,
+            flex: 1,
+            fontSize: typography.xl,
+            fontWeight: typography.bold,
+          }}
+        >
+          {t('home.hello', {
+            name: profile.name || t('profile.defaultName'),
+          })}
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={hasContactAlerts ? t('notifications.bellWithAlerts') : t('notifications.bell')}
+          accessibilityHint={t('notifications.bellHint')}
+          onPress={() => router.push(Routes.notifications)}
+          style={[styles.bell, { backgroundColor: colors.white, borderColor: colors.inputBorder }]}
+        >
+          <Ionicons name="notifications-outline" size={24} color={colors.primary} />
+          {hasContactAlerts ? <View accessibilityLabel={t('notifications.indicator')} style={[styles.indicator, { backgroundColor: colors.danger }]} /> : null}
+        </Pressable>
+      </View>
       <Text
         style={{
           color: colors.textMedium,
@@ -306,6 +325,9 @@ export default function HomeEmergencyScreen() {
   );
 }
 const styles = StyleSheet.create({
+  homeHeader: { alignItems: 'center', flexDirection: 'row', gap: 12 },
+  bell: { alignItems: 'center', borderRadius: 22, borderWidth: 1, height: 44, justifyContent: 'center', width: 44 },
+  indicator: { borderColor: '#FFFFFF', borderRadius: 6, borderWidth: 2, height: 12, position: 'absolute', right: 5, top: 5, width: 12 },
   section: { fontSize: 17, fontWeight: '700', marginBottom: 10 },
   requirement: {
     minHeight: 58,
