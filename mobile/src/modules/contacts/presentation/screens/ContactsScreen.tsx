@@ -27,10 +27,8 @@ export default function ContactsScreen() {
     contactsConfirmed,
     contactsError,
     contactsLoading,
-    deviceTokenConflict,
     performContactAction,
     refreshContacts,
-    registerDeviceToken,
   } = useAppState();
   const { t } = useI18n();
   const { colors, spacing, typography } = useAppTheme();
@@ -74,21 +72,6 @@ export default function ContactsScreen() {
             tone="danger"
             title={t('common.error')}
             message={actionError}
-          />
-        </View>
-      ) : null}
-      {deviceTokenConflict ? (
-        <View style={{ marginTop: spacing.sm }}>
-          <StatusBanner
-            tone="warning"
-            title={t('contacts.deviceConflictTitle')}
-            message={t('contacts.deviceConflictBody')}
-          />
-          <AppButton
-            title={t('contacts.registerDevice')}
-            onPress={() => void registerDeviceToken()}
-            variant="outline"
-            style={{ marginTop: spacing.sm }}
           />
         </View>
       ) : null}

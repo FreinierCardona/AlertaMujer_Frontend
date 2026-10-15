@@ -8,7 +8,6 @@ export type {
   DirectoryUser,
   PageResponse,
 } from './contactsApi';
-export { deviceTokenApi } from './deviceTokenApi';
 export { emergencyApi } from './emergencyApi';
 export type {
   EmergencyRemoteStatus,

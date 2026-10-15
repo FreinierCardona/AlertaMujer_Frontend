@@ -8,7 +8,8 @@
     "ios": "expo start --ios",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
-    "test:evidence": "node --experimental-strip-types --test test/evidenceLimits.test.ts"
+    "test:evidence": "node --experimental-strip-types --test test/evidenceLimits.test.ts",
+    "test:remove-push": "node --test test/removePush.test.mjs"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
@@ -24,7 +25,6 @@
     "expo-image-picker": "~57.0.17",
     "expo-linking": "~57.0.10",
     "expo-location": "~57.0.17",
-    "expo-notifications": "~57.0.18",
     "expo-router": "~57.0.21",
     "expo-secure-store": "~57.0.4",
     "expo-splash-screen": "~57.0.9",
