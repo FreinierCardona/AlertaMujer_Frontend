@@ -10,12 +10,12 @@ export interface EvidenceResponse {
 export const evidenceApi = {
   list: (emergencyId: string) =>
     apiClient.request<EvidenceResponse[]>(`/api/v1/emergencies/${emergencyId}/evidences`),
-  upload: (emergencyId: string, asset: { uri: string; fileName?: string | null; mimeType?: string | null }) => {
+  upload: (emergencyId: string, asset: { uri: string; fileName: string; mimeType: 'image/webp' }) => {
     const form = new FormData();
     form.append('file', {
       uri: asset.uri,
-      name: asset.fileName || `evidence-${Date.now()}.jpg`,
-      type: asset.mimeType || 'image/jpeg',
+      name: asset.fileName,
+      type: asset.mimeType,
     } as unknown as Blob);
     return apiClient.requestMultipart<EvidenceResponse>(`/api/v1/emergencies/${emergencyId}/evidences`, form);
   },

@@ -7,7 +7,8 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "lint": "expo lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:evidence": "node --experimental-strip-types --test test/evidenceLimits.test.ts"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
@@ -17,7 +18,9 @@
     "@react-navigation/native": "^7.1.8",
     "expo": "~57.0.22",
     "expo-constants": "~57.0.18",
+    "expo-file-system": "~57.0.7",
     "expo-font": "~57.0.4",
+    "expo-image-manipulator": "~57.0.21",
     "expo-image-picker": "~57.0.17",
     "expo-linking": "~57.0.10",
     "expo-location": "~57.0.17",

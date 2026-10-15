@@ -10,6 +10,7 @@ import ScreenHeader from '@shared/ui/ScreenHeader';
 import StatusBanner from '@shared/ui/StatusBanner';
 import useAppState from '@shell/providers/useAppState';
 import { ApiError, evidenceApi } from '@core/api';
+import { convertCaptureToWebp, EvidenceConversionError, type WebpEvidence } from '@modules/evidence/application/webpEvidence';
 import { useAppTheme } from '@shared/theme';
 import { useI18n } from '@shared/i18n';
 export default function CaptureEvidenceScreen() {
@@ -17,11 +18,14 @@ export default function CaptureEvidenceScreen() {
   const { activeEmergency } = useAppState();
   const { t } = useI18n();
   const { spacing } = useAppTheme();
-  const [asset, setAsset] = useState<ImagePicker.ImagePickerAsset | null>(null);
+  const [asset, setAsset] = useState<WebpEvidence | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  const [converting, setConverting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const capture = async () => {
     setError(null);
+    setSuccess(false);
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
       setError(t('evidence.permission'));
@@ -32,7 +36,16 @@ export default function CaptureEvidenceScreen() {
       allowsEditing: false,
       quality: 0.8,
     });
-    if (!result.canceled && result.assets[0]) setAsset(result.assets[0]);
+    if (result.canceled || !result.assets[0]) return;
+    setConverting(true);
+    try {
+      setAsset(await convertCaptureToWebp(result.assets[0]));
+    } catch (cause) {
+      setAsset(null);
+      setError(cause instanceof EvidenceConversionError ? cause.message : 'No fue posible convertir la fotografia. Vuelve a capturarla.');
+    } finally {
+      setConverting(false);
+    }
   };
   const save = async () => {
     if (!asset || !activeEmergency) return;
@@ -45,7 +58,7 @@ export default function CaptureEvidenceScreen() {
     try {
       await evidenceApi.upload(activeEmergency.id, asset);
       setAsset(null);
-      router.back();
+      setSuccess(true);
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : t('common.error'));
     } finally {
@@ -67,11 +80,14 @@ export default function CaptureEvidenceScreen() {
           message={error}
         />
       ) : null}
+      {success ? <StatusBanner tone="success" title={t('common.success')} message={t('evidence.saved')} /> : null}
+      {converting ? <StatusBanner title="Convirtiendo fotografia a WebP..." /> : null}
       {asset ? (
         <>
-          <StatusBanner
-            tone="info"
-            title={t('evidence.review')}
+            <StatusBanner
+              tone="info"
+              title={t('evidence.review')}
+              message={`WebP: ${formatBytes(asset.sizeBytes)}`}
           />
           <Image
             source={{ uri: asset.uri }}
@@ -82,6 +98,13 @@ export default function CaptureEvidenceScreen() {
               title={t('evidence.retake')}
               onPress={() => void capture()}
               variant="outline"
+              style={styles.button}
+              disabled={uploading}
+            />
+            <AppButton
+              title={t('common.cancel')}
+              onPress={() => setAsset(null)}
+              variant="ghost"
               style={styles.button}
               disabled={uploading}
             />
@@ -100,6 +123,7 @@ export default function CaptureEvidenceScreen() {
           <AppButton
             title={t('evidence.capture')}
             onPress={() => void capture()}
+            disabled={converting}
           />
           <AppButton
             title={t('common.cancel')}
@@ -110,6 +134,10 @@ export default function CaptureEvidenceScreen() {
       )}
     </AppScreen>
   );
+}
+
+function formatBytes(value: number) {
+  return `${(value / 1000).toFixed(1)} KB`;
 }
 const styles = StyleSheet.create({
   preview: {
