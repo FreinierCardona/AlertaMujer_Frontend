@@ -10,7 +10,7 @@ export class ApiError extends Error {
 }
 
 type Method = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
-type RequestOptions = { method?: Method; body?: unknown; authenticated?: boolean; retrying?: boolean };
+type RequestOptions = { method?: Method; body?: unknown; authenticated?: boolean; retrying?: boolean; headers?: Record<string, string> };
 type BackendError = { code?: string; message?: string; requestId?: string; fields?: { field?: string; message?: string }[] | Record<string, string> };
 const TIMEOUT_MS = 15_000;
 const FILE_UPLOAD_TIMEOUT_MS = 30_000;
@@ -36,7 +36,13 @@ class ApiClient {
     try {
       const response = await fetch(`${appConfig.apiBaseUrl.replace(/\/$/, '')}${path}`, {
         method,
-        headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-Request-Id': requestId, ...(authenticated && this.accessToken ? { Authorization: `Bearer ${this.accessToken}` } : {}) },
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          'X-Request-Id': requestId,
+          ...options.headers,
+          ...(authenticated && this.accessToken ? { Authorization: `Bearer ${this.accessToken}` } : {}),
+        },
         body: options.body === undefined ? undefined : JSON.stringify(options.body), signal: controller.signal,
       });
       const payload = await readPayload(response);
