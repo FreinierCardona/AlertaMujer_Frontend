@@ -1,5 +1,6 @@
 // Conserva preferencias y prototipos heredados; contactos, sesión y perfil provienen del Backend.
 import NetInfo from '@react-native-community/netinfo';
+import { AppState } from 'react-native';
 import type { ReactNode } from 'react';
 import { createContext, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -330,10 +331,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         );
       }
       apiClient.setAccessToken(session.accessToken);
+      setTermsPending(session.termsPending);
       setAccessToken(session.accessToken);
       await tokenStorage.setRefreshToken(session.refreshToken);
-      setTermsPending(session.termsPending);
       setProfile(toViewProfile(session.user));
+      if (session.termsPending) return;
       const [freshProfile, settings] = await Promise.all([
         identityApi.getProfile(),
         identityApi.getEmergencySettings(),
@@ -343,7 +345,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       try {
         await restoreActiveEmergency();
       } catch {
-        // La sesiÃ³n es vÃ¡lida; el aviso se expone sin sustituirla por una sesiÃ³n local.
+        // La sesión es válida; el aviso se expone sin sustituirla por una sesión local.
       }
       void refreshContacts().catch(() => undefined);
     },
@@ -401,7 +403,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const acceptTerms = useCallback(async () => {
     await identityApi.acceptTerms();
     setTermsPending(false);
-  }, []);
+    void identityApi.getProfile().then((freshProfile) => setProfile(toViewProfile(freshProfile))).catch(() => undefined);
+    void identityApi.getEmergencySettings().then((settings) => setHelpMessageState(settings.message)).catch(() => undefined);
+    void restoreActiveEmergency().catch(() => undefined);
+    void refreshContacts().catch(() => undefined);
+  }, [refreshContacts, restoreActiveEmergency]);
   const updateProfile = useCallback(
     async (next: Pick<UserProfileView, 'username' | 'name' | 'lastName'>) => {
       const updated = await identityApi.updateProfile({
@@ -452,6 +458,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         if (action === 'REJECT') await contactsApi.reject(contactId);
         if (action === 'REINVITE') await contactsApi.reinvite(contactId);
       } finally {
+        // Una consulta anterior puede haber comenzado antes de la acción; espera y vuelve a leer.
+        await contactsRefreshInFlight.current?.catch(() => undefined);
         await refreshContacts().catch(() => undefined);
       }
     },
@@ -544,6 +552,33 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     });
     return () => setLocationSyncListener(null);
   }, []);
+  useEffect(() => {
+    if (!activeEmergencyId) return;
+    let current = true;
+    let busy = false;
+    const refresh = async () => {
+      if (!current || busy || AppState.currentState !== 'active') return;
+      busy = true;
+      try {
+        const response = await emergencyApi.get(activeEmergencyId);
+        if (!current) return;
+        if (response.status === 'FINALIZED') {
+          setState((previous) => previous.activeEmergency?.id === activeEmergencyId ? { ...previous, activeEmergency: null } : previous);
+          void refreshHistory().catch(() => undefined);
+        } else {
+          const confirmed = toEmergency(response);
+          setState((previous) => previous.activeEmergency?.id === activeEmergencyId
+            ? { ...previous, activeEmergency: { ...previous.activeEmergency, status: confirmed.status, previousOnlineStatus: confirmed.previousOnlineStatus } }
+            : previous);
+        }
+      } catch { /* Mantiene el estado confirmado cuando no se puede consultar. */ }
+      finally { busy = false; }
+    };
+    const timer = setInterval(() => void refresh(), 10000);
+    const subscription = AppState.addEventListener('change', (state) => { if (state === 'active') void refresh(); });
+    return () => { current = false; clearInterval(timer); subscription.remove(); };
+  }, [activeEmergencyId, refreshHistory]);
+
   useEffect(() => {
     if (!activeEmergencyId) {
       void stopBackgroundLocation().catch(() => undefined);
@@ -652,7 +687,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         try {
           resolved = await emergencyApi.get(response.emergencyId);
         } catch {
-          // A successful creation remains authoritative even if this optional detail read fails.
+          // Una creación exitosa sigue siendo válida aunque falle esta lectura opcional del detalle.
         }
         setState((current) => ({
           ...current,

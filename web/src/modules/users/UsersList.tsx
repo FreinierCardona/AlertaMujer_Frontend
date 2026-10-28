@@ -1,10 +1,13 @@
 // Consulta cuentas administrativas directamente desde la página paginada del Backend.
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from '../../app/navigation';
+import { useVisibleRefresh } from '../../shared/hooks/useVisibleRefresh';
 import { adminUsersApi, type AdminUser, type PageResponse } from '../../shared/api/adminUsersApi';
 import { ApiError } from '../../shared/api/client';
 import { usePreferences } from '../../shared/preferences/PreferencesContext';
-import { Button, Notice, PageHeader, Pagination, StatePanel, StatusBadge } from '../../shared/ui/components';
+import { Button, PageHeader, Pagination, StatePanel, StatusBadge } from '../../shared/ui/components';
+
+import { CreateUserForm } from './CreateUserForm';
 
 const PAGE_SIZE = 20;
 
@@ -35,16 +38,19 @@ export function UsersList() {
     const timer = window.setTimeout(() => { void load(); }, 0);
     return () => window.clearTimeout(timer);
   }, [load]);
+  const refreshVisible = useCallback(async (current: () => boolean) => {
+    try { const next = await adminUsersApi.list(page, PAGE_SIZE); if (current()) { setResult(next); setError(null); } }
+    catch (cause) { if (current() && cause instanceof ApiError && cause.status === 403) { setResult(null); setError(cause); } }
+  }, [page]);
+  useVisibleRefresh(refreshVisible);
 
   const denied = error?.status === 403;
   const totalPages = result ? Math.max(1, Math.ceil(result.total / result.size)) : 1;
 
   return (
     <div>
-      <PageHeader eyebrow={t('users')} title={t('usersTitle')} description={t('usersIntro')} />
-      <Notice kind="warning">
-        El alta administrativa permanece deshabilitada: falta la ruta Backend y el traspaso verificable de la solicitud pendiente (B-04). No se crean cuentas locales ni habilitadas de forma anticipada.
-      </Notice>
+      <PageHeader eyebrow={t('users')} title={t('usersTitle')} description={t('usersIntro')} actions={<CreateUserForm onCreated={() => void load()} />} />
+
       {loading ? (
         <StatePanel kind="loading" message={t('loading')} />
       ) : denied ? (
@@ -81,7 +87,7 @@ export function UsersList() {
                     <td data-label={t('email')}>{user.email}</td>
                     <td data-label={t('phone')}>{user.phone}</td>
                     <td data-label="Rol">{user.role}</td>
-                    <td data-label={t('status')}><StatusBadge status={accountStatus(user.accountStatus)} /></td>
+                    <td data-label={t('status')}><>{user.role === 'USER' && user.termsPending ? <span>Pendiente de aceptar condiciones</span> : <StatusBadge status={accountStatus(user.accountStatus)} />}</></td>
                     <td data-label={t('actions')}>
                       <Link className="button button--secondary" to={`/admin/usuarias/${encodeURIComponent(user.userId)}`}>
                         <span>{t('viewDetail')}</span>

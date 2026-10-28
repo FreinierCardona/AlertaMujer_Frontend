@@ -25,6 +25,7 @@ export function setLocationSyncListener(
   locationSyncListener = listener;
 }
 
+// El registro global permite ejecutar la tarea aunque no haya una pantalla montada.
 if (!TaskManager.isTaskDefined(BACKGROUND_LOCATION_TASK)) {
   TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
     if (error || !data) return;
@@ -41,6 +42,7 @@ if (!TaskManager.isTaskDefined(BACKGROUND_LOCATION_TASK)) {
       capturedAt: new Date(latest.timestamp).toISOString(),
     };
     try {
+      // Restaura la sesión desde almacenamiento seguro si el proceso perdió el token en memoria.
       if (!apiClient.hasAccessToken()) {
         const refreshToken = await tokenStorage.getRefreshToken();
         if (!refreshToken) throw new Error('missing-background-session');
@@ -61,6 +63,7 @@ if (!TaskManager.isTaskDefined(BACKGROUND_LOCATION_TASK)) {
   });
 }
 
+// Asocia las ubicaciones a una emergencia y evita arrancar un servicio que ya está activo.
 export async function startBackgroundLocation(
   emergencyId: string,
   title: string,

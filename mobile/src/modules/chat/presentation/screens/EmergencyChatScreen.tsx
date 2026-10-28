@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import NetInfo from '@react-native-community/netinfo';
+import { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Redirect, useLocalSearchParams } from 'expo-router';
 import Routes from '@shell/navigation/routes';
@@ -21,27 +22,33 @@ export default function EmergencyChatScreen() {
     [activeEmergency, history, id],
   );
   if (!emergency) return <Redirect href={Routes.history} />;
-  return <EmergencyChatConversation emergency={emergency} profile={profile} />;
+  return <EmergencyChatConversation key={emergency.id} emergency={emergency} profile={profile} />;
 }
 
 function EmergencyChatConversation({ emergency, profile }: { emergency: Emergency; profile: UserProfileView }) {
   const { t } = useI18n();
   const { colors, spacing } = useAppTheme();
+  const [internet, setInternet] = useState<boolean | null>(null);
+  useEffect(() => NetInfo.addEventListener((state) => setInternet(Boolean(state.isConnected && state.isInternetReachable !== false))), []);
   const [text, setText] = useState('');
   const confirmedStatus = emergency.status === 'active' ? 'ACTIVE'
     : emergency.status === 'inProgress' ? 'IN_PROGRESS'
       : emergency.status === 'offline' ? 'OFFLINE' : 'FINALIZED';
   const chat = useEmergencyChat(emergency.id, confirmedStatus);
-  const send = () => { if (chat.send(text)) setText(''); };
+  const [submitted, setSubmitted] = useState<string | null>(null);
+  const confirmed = submitted !== null && !chat.pending && chat.messages.some((item) => item.content === submitted && item.senderUserId === profile.userId);
+  const draft = confirmed ? '' : text;
+  const send = () => { setSubmitted(draft.trim()); chat.send(draft); };
 
   return (
     <AppScreen>
-      <ScreenHeader canGoBack title={t('chat.title')} subtitle={t('emergency.reference', { id: emergency.id })} />
-      {chat.error ? <View style={{ height: spacing.sm }}>
+      <ScreenHeader canGoBack title={t('chat.title')} />
+      {internet === false ? <StatusBanner tone="warning" title="Sin conexión a Internet" message="Tu borrador se conserva." /> : null}
+      {chat.error ? <View style={{ marginBottom: spacing.sm }}>
         <StatusBanner tone="danger" title={t('common.error')} message={chat.error} />
       </View> : null}
       <View style={{ height: spacing.lg }} />
-      {chat.loading ? <StatusBanner title={t('common.loading')} /> : chat.messages.length === 0 ? (
+      {chat.loading && chat.messages.length === 0 ? <StatusBanner title={t('common.loading')} /> : chat.messages.length === 0 ? (
         <StatusBanner title={t('chat.empty')} />
       ) : chat.messages.map((message) => (
         <View key={message.messageId} style={[
@@ -59,14 +66,12 @@ function EmergencyChatConversation({ emergency, profile }: { emergency: Emergenc
         </View>
       ))}
       <View style={{ marginTop: spacing.lg }}>
-        {chat.canCompose ? <>
-          <AppInput value={text} onChangeText={setText} placeholder={t('chat.placeholder')} multiline maxLength={500} />
-          <AppButton title={t('chat.send')} onPress={send} disabled={!text.trim() || chat.pending !== null} />
-          {chat.pending ? <AppButton title={t('common.retry')} onPress={chat.retryPending} variant="outline" /> : null}
-        </> : <>
-          <StatusBanner tone="warning" title={chat.status === 'FINALIZED' ? t('chat.closed') : t('chat.offline')} />
-          {chat.connection === 'degraded' ? <AppButton title={t('common.retry')} onPress={() => void chat.recover()} variant="outline" /> : null}
-        </>}
+        {chat.status !== 'FINALIZED' ? <><AppInput value={draft} onChangeText={(value) => { setText(value); setSubmitted(null); }} placeholder={t('chat.placeholder')} multiline maxLength={500} editable={!chat.pending} />
+        <AppButton title={t('chat.send')} onPress={send} disabled={!chat.canCompose || !draft.trim() || chat.pending !== null} />
+        {chat.pending ? <><StatusBanner title="Mensaje pendiente de confirmación" message={chat.pending.content} /><AppButton title={t('common.retry')} onPress={chat.retryPending} disabled={!chat.canCompose} variant="outline" /></> : null}
+        {chat.connection !== 'connected' ? <StatusBanner tone="warning" title="Reconectando conversación" message="Tu borrador se conserva. El canal del chat está desconectado." /> : null}
+        {chat.status === 'OFFLINE' ? <StatusBanner tone="warning" title="Ubicación pendiente de sincronización" /> : null}
+        </> : <StatusBanner title={t('chat.closed')} />}
       </View>
     </AppScreen>
   );

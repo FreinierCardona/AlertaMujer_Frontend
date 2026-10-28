@@ -6,6 +6,7 @@ import { EmergencyStompClient } from '@modules/chat/infrastructure/EmergencyStom
 export type EmergencyChatStatus = 'ACTIVE' | 'IN_PROGRESS' | 'OFFLINE' | 'FINALIZED';
 type ConnectionState = 'connecting' | 'connected' | 'degraded';
 
+// Unifica eventos STOMP y lecturas REST por el identificador persistido, sin duplicar mensajes.
 function merge(messages: ChatMessageResponse[], incoming: ChatMessageResponse) {
   const byId = new Map(messages.map((message) => [message.messageId, message]));
   byId.set(incoming.messageId, incoming);
@@ -20,9 +21,12 @@ function createClientMessageId() {
   });
 }
 
+// Coordina conversación, recuperación del historial y confirmación del mensaje pendiente.
 export function useEmergencyChat(emergencyId: string, confirmedStatus: EmergencyChatStatus) {
   const [messages, setMessages] = useState<ChatMessageResponse[]>([]);
-  const messagesRef = useRef<ChatMessageResponse[]>([]);
+  // Cursor de recuperación REST; los eventos en vivo no lo adelantan para no saltar mensajes.
+  const recoveredThrough = useRef(0);
+  const recovering = useRef(false);
   const [connection, setConnection] = useState<ConnectionState>('connecting');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -38,28 +42,34 @@ export function useEmergencyChat(emergencyId: string, confirmedStatus: Emergency
   const apply = useCallback((message: ChatMessageResponse) => {
     setMessages((current) => {
       const next = merge(current, message);
-      messagesRef.current = next;
       return next;
     });
     setPending((current) => current?.clientMessageId === message.clientMessageId ? null : current);
   }, []);
 
+  // Recorre páginas de 50 mensajes y evita ejecutar dos recuperaciones a la vez.
   const recover = useCallback(async () => {
+    if (recovering.current) return;
+    recovering.current = true;
     setLoading(true);
     setError(null);
     try {
-      const after = messagesRef.current.at(-1)?.messageId ?? 0;
-      const recovered = await chatApi.list(emergencyId, after);
-      recovered.forEach(apply);
+      let page: ChatMessageResponse[];
+      do {
+        page = await chatApi.list(emergencyId, recoveredThrough.current);
+        page.forEach(apply);
+        if (page.length) recoveredThrough.current = page[page.length - 1].messageId;
+      } while (page.length === 50);
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : 'No fue posible recuperar la conversación.');
     } finally {
+      recovering.current = false;
       setLoading(false);
     }
   }, [apply, emergencyId]);
 
   useEffect(() => {
-    messagesRef.current = [];
+    recoveredThrough.current = 0;
     const recoveryTimer = setTimeout(() => void recover(), 0);
     const client = new EmergencyStompClient({
       emergencyId,
@@ -87,12 +97,21 @@ export function useEmergencyChat(emergencyId: string, confirmedStatus: Emergency
       client.stop();
       if (clientRef.current === client) clientRef.current = null;
     };
-  }, [apply, confirmedStatus, emergencyId, recover]);
+  }, [apply, emergencyId, recover]);
+
+  const pendingId = pending?.clientMessageId;
+  useEffect(() => {
+    if (!pendingId) return;
+    // Mientras falte confirmación, consulta el historial para recuperar un evento que pudo perderse.
+    const timer = setInterval(() => void recover(), 3000);
+    return () => clearInterval(timer);
+  }, [pendingId, recover]);
 
   const retryPending = useCallback(() => {
     if (!pending) return;
     try {
-      clientRef.current?.send(pending.clientMessageId, pending.content);
+      if (!clientRef.current) throw new Error('El canal de conversación no está conectado.');
+      clientRef.current.send(pending.clientMessageId, pending.content);
       setError(null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'No fue posible enviar el mensaje.');
@@ -102,10 +121,12 @@ export function useEmergencyChat(emergencyId: string, confirmedStatus: Emergency
   const send = useCallback((value: string) => {
     const content = value.trim();
     if (!content || content.length > 500 || remoteStatus === 'OFFLINE' || remoteStatus === 'FINALIZED') return false;
+    // Un reintento conserva el identificador del mensaje pendiente para aprovechar la idempotencia del servidor.
     const logicalMessage = pending ?? { clientMessageId: createClientMessageId(), content };
     setPending(logicalMessage);
     try {
-      clientRef.current?.send(logicalMessage.clientMessageId, logicalMessage.content);
+      if (!clientRef.current) throw new Error('El canal de conversación no está conectado.');
+      clientRef.current.send(logicalMessage.clientMessageId, logicalMessage.content);
       setError(null);
       return true;
     } catch (cause) {

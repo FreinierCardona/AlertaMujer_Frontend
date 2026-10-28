@@ -14,7 +14,7 @@ const appConfig: AppConfig = {
 
 export const isRunningInExpoGo = Constants.appOwnership === 'expo';
 
-/** Expo Go cannot validate this application's persistent Android location service. */
+/** Expo Go no permite validar el servicio persistente de ubicación Android de esta aplicación. */
 export const canUseBackgroundLocation = !isRunningInExpoGo;
 
 export default appConfig;

@@ -1,5 +1,6 @@
 // Resume los cuatro estados de alerta y ofrece acceso directo a registros recientes.
 import { useCallback, useEffect, useState } from 'react';
+import { useVisibleRefresh } from '../../shared/hooks/useVisibleRefresh';
 import { useNavigation } from '../../app/navigation';
 import { ApiError } from '../../shared/api/client';
 import { adminEmergencyApi, type RemoteDashboard } from '../../shared/api/emergencyApi';
@@ -17,6 +18,7 @@ const cards: { status: AlertStatus; icon: IconName; count: keyof RemoteDashboard
   { status: 'active', icon: 'alert', count: 'activeCount' },
   { status: 'inProgress', icon: 'spark', count: 'inProgressCount' },
   { status: 'offline', icon: 'warning', count: 'offlineCount' },
+  { status: 'finished', icon: 'check', count: 'finalizedCount' },
 ];
 
 export function Dashboard() {
@@ -43,6 +45,11 @@ export function Dashboard() {
     const timer = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(timer);
   }, [load]);
+  const refreshVisible = useCallback(async (current: () => boolean) => {
+    try { const next = await adminEmergencyApi.dashboard(); if (current()) { setSummary(next); setError(null); } }
+    catch (cause) { if (current() && cause instanceof ApiError && cause.status === 403) { setSummary(null); setError('denied'); } }
+  }, []);
+  useVisibleRefresh(refreshVisible);
 
   const openStatus = (status: AlertStatus) => {
     setFilters({ alertStatus: status, alertPage: 1 });

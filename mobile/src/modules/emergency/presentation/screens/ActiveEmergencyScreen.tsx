@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { BackHandler, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Redirect, useRouter } from 'expo-router';
+import { Redirect, useRouter, useSegments } from 'expo-router';
 import AppScreen from '@shared/ui/AppScreen';
 import AppCard from '@shared/ui/AppCard';
 import AppButton from '@shared/ui/AppButton';
@@ -12,6 +12,7 @@ import Routes from '@shell/navigation/routes';
 import useAppState from '@shell/providers/useAppState';
 import { useAppTheme } from '@shared/theme';
 import { useI18n } from '@shared/i18n';
+import { useEmergencyChat } from '@modules/chat/presentation/hooks/useEmergencyChat';
 import EvidenceGallery from '@modules/evidence/presentation/components/EvidenceGallery';
 
 export default function ActiveEmergencyScreen() {
@@ -49,11 +50,11 @@ export default function ActiveEmergencyScreen() {
       <Ionicons name="shield" size={30} color={colors.textWhite} />
       <View style={{ flex: 1 }}>
         <Text style={{ color: colors.textWhite, fontSize: typography.xl, fontWeight: '800' }}>{t('emergency.title')}</Text>
-        <Text style={{ color: colors.textWhite }}>{t('emergency.reference', { id: activeEmergency.id })}</Text>
+
       </View>
       <View style={[styles.pill, { backgroundColor: colors.white }]}><Text style={{ color: colors.textDark, fontWeight: '700' }}>{t(statusKey)}</Text></View>
     </View>
-    <StatusBanner tone={activeEmergency.syncState === 'pending' ? 'warning' : tone} title={activeEmergency.syncState === 'pending' ? t('emergency.offline') : t(statusKey)} message={activeEmergency.syncState === 'pending' ? t('emergency.locationPending') : t('emergency.locationSent')} />
+    <StatusBanner tone={activeEmergency.syncState === 'pending' ? 'warning' : tone} title={activeEmergency.syncState === 'pending' ? 'Ubicación pendiente de sincronización' : t(statusKey)} message={activeEmergency.syncState === 'pending' ? t('emergency.locationPending') : t('emergency.locationSent')} />
     {error ? <View style={{ marginTop: spacing.sm }}><StatusBanner tone="danger" title={t('common.error')} message={error} /></View> : null}
     <AppCard style={{ marginTop: spacing.md }}>
       <Text style={[styles.label, { color: colors.textMedium }]}>{t('emergency.started')}</Text>
@@ -66,16 +67,33 @@ export default function ActiveEmergencyScreen() {
     <Text style={[styles.section, { color: colors.textDark, marginTop: spacing.lg }]}>{t('emergency.actions')}</Text>
     <View style={styles.actions}>
       <Action icon="camera-outline" label={t('emergency.evidence')} onPress={() => router.push(Routes.evidenceCapture)} />
-      <Action icon="chatbubble-ellipses-outline" label={t('emergency.chat')} onPress={() => router.push({ pathname: '/emergency/chat/[id]', params: { id: activeEmergency.id } })} />
+      <ChatAction key={activeEmergency.id} emergencyId={activeEmergency.id} status={activeEmergency.status} onPress={() => router.push({ pathname: '/emergency/chat/[id]', params: { id: activeEmergency.id } })} />
       <Action icon="call-outline" label={t('emergency.call')} onPress={() => void Linking.openURL('tel:')} />
     </View>
     <Text style={{ color: colors.textMedium, fontSize: 12, textAlign: 'center', marginTop: 6 }}>{t('call.disclaimer')}</Text>
     <Text style={[styles.section, { color: colors.textDark, marginTop: spacing.lg }]}>{t('history.evidence')}</Text>
     <EvidenceGallery emergencyId={activeEmergency.id} />
     {backgroundMessage ? <AppCard style={{ marginTop: spacing.lg }}><Text style={{ color: backgroundMessage === 'ok' ? colors.success : colors.warning, fontSize: 12 }}>{t(backgroundMessage === 'ok' ? 'emergency.backgroundOk' : 'emergency.backgroundError')}</Text></AppCard> : null}
-    <AppButton title={t('emergency.finish')} onPress={() => setFinish(true)} variant="danger" style={{ marginTop: spacing.lg }} />
+    <AppButton title="Finalizar alerta" onPress={() => setFinish(true)} variant="danger" style={{ marginTop: spacing.lg }} />
     <ConfirmModal visible={finish} title={t('emergency.finishTitle')} message={t('emergency.finishBody')} confirmLabel={t('emergency.finish')} cancelLabel={t('common.cancel')} destructive loading={finishing} onCancel={() => setFinish(false)} onConfirm={() => void close()} />
   </AppScreen>;
+}
+
+function ChatAction({ emergencyId, status, onPress }: { emergencyId: string; status: string; onPress: () => void }) {
+  const { profile } = useAppState();
+  const segments = useSegments();
+  const chat = useEmergencyChat(emergencyId, status === 'inProgress' ? 'IN_PROGRESS' : status === 'offline' ? 'OFFLINE' : 'ACTIVE');
+  const [readThrough, setReadThrough] = useState<number | null>(null);
+  const latest = chat.messages.at(-1)?.messageId ?? 0;
+  const inConversation = segments.join('/').startsWith('emergency/chat');
+  useEffect(() => {
+    if ((!chat.loading && readThrough === null) || inConversation) {
+      const timer = setTimeout(() => setReadThrough(latest), 0);
+      return () => clearTimeout(timer);
+    }
+  }, [chat.loading, inConversation, latest, readThrough]);
+  const unread = readThrough !== null && chat.messages.some((message) => message.messageId > readThrough && message.senderUserId !== profile.userId);
+  return <Action icon="chatbubble-ellipses-outline" label={unread ? 'Chat • Mensajes nuevos' : 'Chat'} onPress={() => { setReadThrough(latest); onPress(); }} />;
 }
 
 function Action({ icon, label, onPress }: { icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void }) {

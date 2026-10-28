@@ -101,7 +101,7 @@ export function Router() {
     if (alertMatch)
       return (
         <AdminShell>
-          <AlertDetail alertId={decodeURIComponent(alertMatch[1])} />
+          <AlertDetail key={alertMatch[1]} alertId={decodeURIComponent(alertMatch[1])} />
         </AdminShell>
       );
     if (path === '/admin/usuarias')
