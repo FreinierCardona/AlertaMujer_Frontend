@@ -20,7 +20,7 @@ export interface ContactAlertLocation {
   capturedAt: string;
 }
 
-/** Deliberately mirrors only the contact-safe projection from HU-API-022. */
+/** Refleja únicamente la representación segura para contactos de HU-API-022. */
 export interface ContactAlertDetail {
   emergencyId: string;
   status: ContactAlertStatus;

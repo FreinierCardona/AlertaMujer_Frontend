@@ -1,3 +1,4 @@
+import { apiErrorMessage } from './apiErrorMessage';
 import appConfig from '@core/config/appConfig';
 
 export type ApiFieldErrors = Record<string, string>;
@@ -15,19 +16,25 @@ type BackendError = { code?: string; message?: string; requestId?: string; field
 const TIMEOUT_MS = 15_000;
 const FILE_UPLOAD_TIMEOUT_MS = 30_000;
 
+// Centraliza las solicitudes móviles, los errores de interfaz y la renovación coordinada de sesión.
 class ApiClient {
   private accessToken: string | null = null;
   private refreshSession: (() => Promise<boolean>) | null = null;
   private invalidateSession: (() => void) | null = null;
   private refreshInFlight: Promise<boolean> | null = null;
+
   setAccessToken(accessToken: string | null) { this.accessToken = accessToken; }
   getAccessToken() { return this.accessToken; }
   hasAccessToken() { return this.accessToken !== null; }
   refreshAccessToken() { return this.coordinatedRefresh(); }
   invalidateAuthenticatedSession() { this.invalidateSession?.(); }
-  configureSession(options: { refreshSession: () => Promise<boolean>; invalidateSession: () => void }) { this.refreshSession = options.refreshSession; this.invalidateSession = options.invalidateSession; }
+  configureSession(options: { refreshSession: () => Promise<boolean>; invalidateSession: () => void }) {
+    this.refreshSession = options.refreshSession;
+    this.invalidateSession = options.invalidateSession;
+  }
+
   async request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-    if (!appConfig.apiBaseUrl) throw new ApiError('La URL del servicio no está configurada en esta compilación.', 'CONFIGURATION_ERROR');
+    if (!appConfig.apiBaseUrl) throw new ApiError('El servicio no está disponible. Inténtalo de nuevo más tarde.', 'CONFIGURATION_ERROR');
     const method = options.method ?? 'GET';
     const authenticated = options.authenticated ?? true;
     const requestId = createRequestId();
@@ -47,11 +54,12 @@ class ApiClient {
       });
       const payload = await readPayload(response);
       if (response.status === 401 && authenticated && !options.retrying) {
+        // Solo repite lecturas GET para no reenviar automáticamente operaciones con efectos.
         const canRetry = method === 'GET' && (await this.coordinatedRefresh());
         if (canRetry) return this.request<T>(path, { ...options, retrying: true });
         this.invalidateSession?.();
       }
-      if (!response.ok) throw toApiError(payload, response.status, response.headers.get('X-Request-Id') ?? requestId);
+      if (!response.ok) throw toApiError(payload, response.status, response.headers.get('X-Request-Id') ?? requestId, path);
       return payload as T;
     } catch (error) {
       if (error instanceof ApiError) throw error;
@@ -59,8 +67,10 @@ class ApiClient {
       throw new ApiError(timedOut ? 'La solicitud tardó demasiado. Verifica tu conexión e inténtalo nuevamente.' : 'No fue posible conectar con el servicio. Verifica tu conexión e inténtalo nuevamente.', timedOut ? 'REQUEST_TIMEOUT' : 'NETWORK_ERROR');
     } finally { clearTimeout(timeout); }
   }
+
+  // Envía archivos sin fijar Content-Type: fetch añade el delimitador multipart correspondiente.
   async requestMultipart<T>(path: string, formData: FormData): Promise<T> {
-    if (!appConfig.apiBaseUrl) throw new ApiError('La URL del servicio no está configurada en esta compilación.', 'CONFIGURATION_ERROR');
+    if (!appConfig.apiBaseUrl) throw new ApiError('El servicio no está disponible. Inténtalo de nuevo más tarde.', 'CONFIGURATION_ERROR');
     const requestId = createRequestId();
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), FILE_UPLOAD_TIMEOUT_MS);
@@ -77,10 +87,11 @@ class ApiClient {
       });
       const payload = await readPayload(response);
       if (response.status === 401) {
+        // Renueva la sesión, pero deja el reintento de esta carga en manos del usuario.
         const refreshed = await this.coordinatedRefresh();
         if (!refreshed) this.invalidateSession?.();
       }
-      if (!response.ok) throw toApiError(payload, response.status, response.headers.get('X-Request-Id') ?? requestId);
+      if (!response.ok) throw toApiError(payload, response.status, response.headers.get('X-Request-Id') ?? requestId, path);
       return payload as T;
     } catch (error) {
       if (error instanceof ApiError) throw error;
@@ -88,8 +99,9 @@ class ApiClient {
       throw new ApiError(timedOut ? 'La carga tardó demasiado. Inténtalo nuevamente.' : 'No fue posible conectar con el servicio. Inténtalo nuevamente.', timedOut ? 'REQUEST_TIMEOUT' : 'NETWORK_ERROR');
     } finally { clearTimeout(timeout); }
   }
+
   async requestBlob(path: string, retrying = false): Promise<Blob> {
-    if (!appConfig.apiBaseUrl) throw new ApiError('La URL del servicio no está configurada en esta compilación.', 'CONFIGURATION_ERROR');
+    if (!appConfig.apiBaseUrl) throw new ApiError('El servicio no está disponible. Inténtalo de nuevo más tarde.', 'CONFIGURATION_ERROR');
     const requestId = createRequestId();
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
@@ -106,7 +118,7 @@ class ApiClient {
       if (!response.ok) {
         const payload = await readPayload(response);
         if (response.status === 401) this.invalidateSession?.();
-        throw toApiError(payload, response.status, response.headers.get('X-Request-Id') ?? requestId);
+        throw toApiError(payload, response.status, response.headers.get('X-Request-Id') ?? requestId, path);
       }
       return response.blob();
     } catch (error) {
@@ -115,6 +127,8 @@ class ApiClient {
       throw new ApiError(timedOut ? 'La descarga tardó demasiado. Inténtalo nuevamente.' : 'No fue posible descargar la fotografía. Inténtalo nuevamente.', timedOut ? 'REQUEST_TIMEOUT' : 'NETWORK_ERROR');
     } finally { clearTimeout(timeout); }
   }
+
+  // Comparte una promesa entre solicitudes simultáneas para no rotar varias veces el mismo token.
   private async coordinatedRefresh() {
     if (!this.refreshSession) return false;
     if (!this.refreshInFlight) {
@@ -125,16 +139,22 @@ class ApiClient {
     return this.refreshInFlight;
   }
 }
+
 async function readPayload(response: Response): Promise<unknown> {
   if (response.status === 204) return undefined;
   const text = await response.text();
   if (!text) return undefined;
   try { return JSON.parse(text) as unknown; } catch { return undefined; }
 }
-function toApiError(payload: unknown, status: number, fallbackRequestId: string) {
+
+function toApiError(payload: unknown, status: number, fallbackRequestId: string, path: string) {
   const error = (payload ?? {}) as BackendError;
   const fields = Array.isArray(error.fields) ? Object.fromEntries(error.fields.filter((item) => item.field && item.message).map((item) => [item.field as string, item.message as string])) : (error.fields ?? {});
-  return new ApiError(error.message ?? 'No fue posible completar la operación.', error.code ?? `HTTP_${status}`, status, fields, error.requestId ?? fallbackRequestId);
+  // Mantiene los campos señalados por el servidor y sustituye sus textos por mensajes de interfaz.
+  const safeFields = Object.fromEntries(Object.keys(fields).map((field) => [field, error.code === 'REGISTRATION_DUPLICATE' ? 'Este dato ya está registrado. Usa otro o inicia sesión.' : 'Revisa este dato e inténtalo de nuevo.']));
+  return new ApiError(apiErrorMessage(error.code ?? '', status, path), error.code ?? `HTTP_${status}`, status, safeFields, error.requestId ?? fallbackRequestId);
 }
+
 function createRequestId() { return `mobile-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`; }
+
 export const apiClient = new ApiClient();

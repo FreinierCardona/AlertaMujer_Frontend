@@ -1,9 +1,10 @@
-// Compone providers, tema global y guardas de sesión y alerta para todas las rutas.
+// Compone proveedores, tema global y controles de sesión y alerta para todas las rutas.
 import 'react-native-gesture-handler';
 import 'react-native-reanimated';
 import { useEffect } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import ContactAlertNotice from '@modules/notifications/presentation/components/ContactAlertNotice';
 import AppProviders from '@shell/providers/AppProviders';
 import useAppState from '@shell/providers/useAppState';
 import Routes from '@shell/navigation/routes';
@@ -64,6 +65,7 @@ function RootNavigator() {
           options={{ gestureEnabled: false }}
         />
       </Stack>
+      {isAuthenticated && !termsPending && !activeEmergency ? <ContactAlertNotice /> : null}
       <StatusBar style={resolvedMode === 'dark' ? 'light' : 'dark'} />
     </>
   );

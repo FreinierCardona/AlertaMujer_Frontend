@@ -1,7 +1,9 @@
 // Presenta la matriz real de requisitos y activa SOS solo mediante pulsación prolongada confirmada.
-import { useCallback, useState } from 'react';
+import * as ImagePicker from 'expo-image-picker';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  AppState,
   Pressable,
   StyleSheet,
   Text,
@@ -38,6 +40,7 @@ export default function HomeEmergencyScreen() {
   } = useAppState();
   const { t } = useI18n();
   const { colors, spacing, typography } = useAppTheme();
+  const [cameraGranted, setCameraGranted] = useState(false);
   const [holding, setHolding] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const [requirementTarget, setRequirementTarget] =
@@ -53,14 +56,42 @@ export default function HomeEmergencyScreen() {
     requirements.gps &&
     requirements.connection;
   const ready = requirementsComplete;
-  const showRequirements = !requirementsComplete && !requirements.checking;
+  const previousReady = useRef<boolean | null>(null);
+  const [showReady, setShowReady] = useState(false);
+  useEffect(() => {
+    if (requirements.checking || !contactsConfirmed) return;
+    const becameReady = ready && previousReady.current === false;
+    previousReady.current = ready;
+    if (!becameReady && ready) return;
+    const timer = setTimeout(() => setShowReady(becameReady), 0);
+    return () => clearTimeout(timer);
+  }, [ready, requirements.checking, contactsConfirmed]);
+  useEffect(() => {
+    if (!showReady) return;
+    const timer = setTimeout(() => setShowReady(false), 5000);
+    return () => clearTimeout(timer);
+  }, [showReady]);
+  const showRequirements = (!requirementsComplete || !cameraGranted) && !requirements.checking;
   useFocusEffect(
     useCallback(() => {
       void refreshRequirements();
+      void ImagePicker.getCameraPermissionsAsync().then((permission) => setCameraGranted(permission.granted));
       void refreshContacts().catch(() => undefined);
-      void contactAlertsApi.list().then((page) => {
-        setHasContactAlerts(authorizedOpenAlerts(page.items).length > 0);
-      }).catch(() => setHasContactAlerts(false));
+      let active = true;
+      let busy = false;
+      const refresh = async () => {
+        if (!active || busy || AppState.currentState !== 'active') return;
+        busy = true;
+        try {
+          const page = await contactAlertsApi.list();
+          if (active) setHasContactAlerts(authorizedOpenAlerts(page.items).length > 0);
+        } catch { /* Conserva el último estado confirmado. */ }
+        finally { busy = false; }
+      };
+      void refresh();
+      const timer = setInterval(() => void refresh(), 10000);
+      const subscription = AppState.addEventListener('change', (state) => { if (state === 'active') void refresh(); });
+      return () => { active = false; clearInterval(timer); subscription.remove(); };
     }, [refreshContacts, refreshRequirements]),
   );
   const activate = async () => {
@@ -77,7 +108,7 @@ export default function HomeEmergencyScreen() {
     }
   };
   const allRequirementRows: {
-    key: DeviceRequirementKey | 'contacts';
+    key: DeviceRequirementKey | 'contacts' | 'camera';
     label: string;
     value: boolean;
   }[] = [
@@ -100,6 +131,7 @@ export default function HomeEmergencyScreen() {
       label: t('requirements.background'),
       value: requirements.background,
     },
+    { key: 'camera', label: 'Cámara para fotografías', value: cameraGranted },
     { key: 'gps', label: t('requirements.gps'), value: requirements.gps },
     {
       key: 'connection',
@@ -143,7 +175,7 @@ export default function HomeEmergencyScreen() {
           style={[styles.bell, { backgroundColor: colors.white, borderColor: colors.inputBorder }]}
         >
           <Ionicons name="notifications-outline" size={24} color={colors.primary} />
-          {hasContactAlerts ? <View accessibilityLabel={t('notifications.indicator')} style={[styles.indicator, { backgroundColor: colors.danger }]} /> : null}
+          {hasContactAlerts ? <View accessibilityLabel={t('notifications.indicator')} style={[styles.indicator, { backgroundColor: colors.danger, borderColor: colors.white }]} /> : null}
         </Pressable>
       </View>
       <Text
@@ -155,7 +187,7 @@ export default function HomeEmergencyScreen() {
       >
         {t('home.protected')}
       </Text>
-      <StatusBanner
+      {!ready || showReady ? <StatusBanner
         tone={ready ? 'success' : requirements.checking ? 'info' : 'warning'}
         title={
           ready
@@ -164,9 +196,9 @@ export default function HomeEmergencyScreen() {
               ? t('home.checking')
               : t('home.blocked')
         }
-      />
+      /> : null}
       {error ? (
-        <View style={{ height: spacing.sm }}>
+        <View style={{ marginTop: spacing.sm }}>
           <StatusBanner
             tone="danger"
             title={
@@ -224,6 +256,7 @@ export default function HomeEmergencyScreen() {
                     accessibilityRole="button"
                     onPress={() => {
                       if (row.key === 'contacts') router.push(Routes.contacts);
+                      else if (row.key === 'camera') void ImagePicker.requestCameraPermissionsAsync().then((permission) => { setCameraGranted(permission.granted); if (!permission.granted) setError('Puedes activar el SOS. Para tomar fotos, habilita la cámara en ajustes.'); }).catch(() => setError('No fue posible solicitar el permiso de cámara.'));
                       else if (row.key === 'connection')
                         void refreshRequirements();
                       else setRequirementTarget(row.key);
@@ -327,7 +360,7 @@ export default function HomeEmergencyScreen() {
 const styles = StyleSheet.create({
   homeHeader: { alignItems: 'center', flexDirection: 'row', gap: 12 },
   bell: { alignItems: 'center', borderRadius: 22, borderWidth: 1, height: 44, justifyContent: 'center', width: 44 },
-  indicator: { borderColor: '#FFFFFF', borderRadius: 6, borderWidth: 2, height: 12, position: 'absolute', right: 5, top: 5, width: 12 },
+  indicator: { borderRadius: 6, borderWidth: 2, height: 12, position: 'absolute', right: 5, top: 5, width: 12 },
   section: { fontSize: 17, fontWeight: '700', marginBottom: 10 },
   requirement: {
     minHeight: 58,

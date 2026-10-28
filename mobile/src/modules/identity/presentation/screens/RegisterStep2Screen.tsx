@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { Keyboard, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ApiError, identityApi } from '@core/api';
@@ -13,17 +13,19 @@ import AppInput from '@shared/ui/AppInput';
 import AppScreen from '@shared/ui/AppScreen';
 import ScreenHeader from '@shared/ui/ScreenHeader';
 import StatusBanner from '@shared/ui/StatusBanner';
+import PrivacyPolicyModal from '../components/PrivacyPolicyModal';
 
 export default function RegisterStep2Screen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ registrationRequestId?: string }>();
   const { t } = useI18n();
-  const { colors, spacing } = useAppTheme();
+  const { colors, spacing, typography } = useAppTheme();
   const [flow, setFlow] = useState<PhoneFirstRegistrationFlow | null>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [accepted, setAccepted] = useState(false);
+  const [policyVisible, setPolicyVisible] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -56,7 +58,7 @@ export default function RegisterStep2Screen() {
         params: { flow: 'registration-v2', registrationRequestId: flow.registrationRequestId, channel: 'EMAIL', notice: 'emailVerificationIssued' },
       });
     } catch (cause) {
-      const apiError = cause as ApiError;
+      const apiError = cause instanceof ApiError ? cause : new ApiError('No pudimos guardar tus credenciales. Inténtalo de nuevo.', 'UNKNOWN');
       setFieldErrors(apiError.fields);
       setError(apiError.fields.email ?? apiError.message ?? 'No pudimos guardar tus credenciales. Revisa la información e inténtalo de nuevo.');
     } finally {
@@ -71,13 +73,22 @@ export default function RegisterStep2Screen() {
       <AppInput label={t('auth.email')} value={email} onChangeText={(value) => { setEmail(value); setFieldErrors((current) => ({ ...current, email: '' })); }} keyboardType="email-address" autoCapitalize="none" error={fieldErrors.email || (submitted && !isEmail(email) ? t('validation.email') : undefined)} />
       <AppInput label={t('auth.password')} value={password} onChangeText={setPassword} secureTextEntry showPasswordToggle error={submitted && !isPassword(password) ? t('validation.password') : undefined} />
       <AppInput label={t('auth.confirmPassword')} value={confirm} onChangeText={setConfirm} secureTextEntry showPasswordToggle error={submitted && password !== confirm ? t('validation.passwordMatch') : undefined} />
-      <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: accepted }} onPress={() => setAccepted(!accepted)} style={[styles.accept, { marginBottom: spacing.lg }]}>
+      <View style={[styles.accept, { marginBottom: spacing.lg, gap: spacing.sm }]}>
+        <Pressable accessibilityRole="checkbox" accessibilityLabel={t('auth.accept')} accessibilityState={{ checked: accepted }} onPress={() => setAccepted(!accepted)} style={styles.checkbox}>
         <Ionicons name={accepted ? 'checkbox' : 'square-outline'} size={24} color={submitted && !accepted ? colors.danger : colors.primary} />
-        <Text style={{ color: colors.textDark, flex: 1 }}>{t('auth.accept')}</Text>
-      </Pressable>
+        </Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="Leer los términos de uso y la política de privacidad" accessibilityHint="Abre el documento completo sin cambiar la casilla de aceptación." onPress={() => { Keyboard.dismiss(); setPolicyVisible(true); }} style={styles.policyLink}>
+          <Text style={{ color: colors.primary, textDecorationLine: 'underline', fontSize: typography.base, lineHeight: 24 }}>{t('auth.accept')}</Text>
+        </Pressable>
+      </View>
+      {policyVisible ? <PrivacyPolicyModal visible onClose={() => setPolicyVisible(false)} /> : null}
       <AppButton title="Crear cuenta y verificar correo" onPress={() => void submit()} disabled={!flow} loading={loading} />
     </AppScreen>
   );
 }
 
-const styles = StyleSheet.create({ accept: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' } });
+const styles = StyleSheet.create({
+  accept: { flexDirection: 'row', alignItems: 'flex-start' },
+  checkbox: { minWidth: 48, minHeight: 48, alignItems: 'center', justifyContent: 'center' },
+  policyLink: { flex: 1, minHeight: 48, justifyContent: 'center' },
+});

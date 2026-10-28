@@ -14,7 +14,7 @@ import { useI18n } from '@shared/i18n';
 
 export default function EmergencyHistoryScreen() {
   const router = useRouter();
-  const { history, historyError, historyHasMore, historyLoading, loadMoreHistory, refreshHistory } = useAppState();
+  const { profile, history, historyError, historyHasMore, historyLoading, loadMoreHistory, refreshHistory } = useAppState();
   const { t } = useI18n();
   const { colors, spacing, typography } = useAppTheme();
   useEffect(() => { void refreshHistory().catch(() => undefined); }, [refreshHistory]);
@@ -26,7 +26,8 @@ export default function EmergencyHistoryScreen() {
       <View style={styles.header}>
         <Ionicons name="checkmark-circle-outline" size={25} color={colors.success} />
         <View style={{ flex: 1 }}>
-          <Text style={{ color: colors.textDark, fontSize: typography.md, fontWeight: '700' }}>{t('emergency.reference', { id: item.id })}</Text>
+          <Text style={{ color: colors.textDark, fontSize: typography.md, fontWeight: '700' }}>{t('history.alertTitle')}</Text>
+          <Text style={{ color: colors.textMedium }}>{[profile.name, profile.lastName].filter(Boolean).join(' ') || profile.username}</Text>
           <Text style={{ color: colors.textMedium, fontSize: 13 }}>{new Date(item.startedAt).toLocaleString()}</Text>
         </View>
         <Text style={{ color: colors.success, fontWeight: '700' }}>{t('history.finalized')}</Text>

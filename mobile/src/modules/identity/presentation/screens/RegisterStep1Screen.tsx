@@ -19,6 +19,7 @@ export default function RegisterStep1Screen() {
   const [name, setName] = useState('');
   const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,6 +29,7 @@ export default function RegisterStep1Screen() {
     setSubmitted(true);
     if (!valid) return;
     setLoading(true);
+    setFieldErrors({});
     setError(null);
     try {
       const registration = await identityApi.startPhoneFirstRegistration({
@@ -52,7 +54,8 @@ export default function RegisterStep1Screen() {
         },
       });
     } catch (cause) {
-      const apiError = cause as ApiError;
+      const apiError = cause instanceof ApiError ? cause : new ApiError('No pudimos iniciar tu registro. Inténtalo de nuevo.', 'UNKNOWN');
+      setFieldErrors(apiError.fields);
       setError(apiError.fields.username ?? apiError.fields.firstNames ?? apiError.fields.lastNames ?? apiError.fields.phone ?? apiError.message ?? 'No pudimos iniciar tu registro. Inténtalo de nuevo.');
     } finally {
       setLoading(false);
@@ -61,13 +64,13 @@ export default function RegisterStep1Screen() {
 
   return (
     <AppScreen>
-      <ScreenHeader canGoBack title={t('auth.personalTitle')} subtitle="Paso 1 de 2 · Datos personales y verificación de teléfono." />
+      <ScreenHeader canGoBack title={t('auth.personalTitle')} subtitle="Ingresa tus datos personales" />
       {error ? <StatusBanner tone="danger" title="Revisa tus datos" message={error} /> : null}
-      <AppInput label="Usuario" hint="Empieza con @; usa letras minúsculas, números o _." value={username} onChangeText={(value) => { setUsername(value.toLowerCase()); setError(null); }} autoCapitalize="none" error={submitted && !isUsername(username) ? 'Usa un usuario válido de 3 a 20 caracteres.' : undefined} />
-      <AppInput label={t('auth.name')} value={name} onChangeText={(value) => { setName(value); setError(null); }} error={submitted && !isPersonName(name) ? t('validation.name') : undefined} />
-      <AppInput label={t('auth.lastName')} value={lastName} onChangeText={(value) => { setLastName(value); setError(null); }} error={submitted && !isPersonName(lastName) ? t('validation.name') : undefined} />
-      <AppInput label={t('auth.phone')} hint="Número colombiano de 10 dígitos, empezando en 3." value={phone} onChangeText={(value) => { setPhone(onlyDigits(value, 10)); setError(null); }} keyboardType="phone-pad" error={submitted && !isPhone(phone) ? t('validation.phone') : undefined} />
-      <AppButton title="Verificar teléfono" onPress={() => void submit()} loading={loading} />
+      <AppInput label="Usuario" hint="Empieza con @; usa letras minúsculas, números o _." value={username} onChangeText={(value) => { setUsername(value.toLowerCase()); setError(null); setFieldErrors({}); }} autoCapitalize="none" error={fieldErrors.username || (submitted && !isUsername(username) ? 'Usa un usuario válido de 3 a 20 caracteres.' : undefined)} />
+      <AppInput label={t('auth.name')} value={name} onChangeText={(value) => { setName(value); setError(null); setFieldErrors({}); }} error={fieldErrors.firstNames || (submitted && !isPersonName(name) ? t('validation.name') : undefined)} />
+      <AppInput label={t('auth.lastName')} value={lastName} onChangeText={(value) => { setLastName(value); setError(null); setFieldErrors({}); }} error={fieldErrors.lastNames || (submitted && !isPersonName(lastName) ? t('validation.name') : undefined)} />
+      <AppInput label={t('auth.phone')} hint="Número colombiano de 10 dígitos, empezando en 3." value={phone} onChangeText={(value) => { setPhone(onlyDigits(value, 10)); setError(null); setFieldErrors({}); }} keyboardType="phone-pad" error={fieldErrors.phone || (submitted && !isPhone(phone) ? t('validation.phone') : undefined)} />
+      <AppButton title="Siguiente" onPress={() => void submit()} loading={loading} />
     </AppScreen>
   );
 }

@@ -1,7 +1,8 @@
 import { useCallback, useState } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { AppState, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { ApiError } from '@core/api';
 import { contactAlertsApi } from '@core/api/contactAlertsApi';
 import type { ContactAlertSummary } from '@core/api/contactAlertsApi';
 import { authorizedOpenAlerts } from '@modules/notifications/application/contactAlerts';
@@ -21,21 +22,28 @@ export default function ContactAlertsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const load = useCallback(async (manual = false) => {
-    if (manual) setRefreshing(true); else setLoading(true);
-    setError(null);
+  const load = useCallback(async (manual = false, silent = false) => {
+    if (manual) setRefreshing(true); else if (!silent) setLoading(true);
+    if (!silent) setError(null);
     try {
       const page = await contactAlertsApi.list();
       setAlerts(authorizedOpenAlerts(page.items));
-    } catch {
-      setAlerts([]);
-      setError(t('notifications.loadError'));
+      setError(null);
+    } catch (cause) {
+      if (!silent || (cause instanceof ApiError && (cause.status === 401 || cause.status === 403))) { setAlerts([]); setError(t('notifications.loadError')); }
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   }, [t]);
-  useFocusEffect(useCallback(() => { void load(); }, [load]));
+  useFocusEffect(useCallback(() => {
+    let busy = false;
+    const refresh = async () => { if (busy || AppState.currentState !== 'active') return; busy = true; try { await load(false, true); } finally { busy = false; } };
+    void load();
+    const timer = setInterval(() => void refresh(), 10000);
+    const subscription = AppState.addEventListener('change', (state) => { if (state === 'active') void refresh(); });
+    return () => { clearInterval(timer); subscription.remove(); };
+  }, [load]));
   return (
     <AppScreen scroll={false}>
       <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xl }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} tintColor={colors.primary} />}>

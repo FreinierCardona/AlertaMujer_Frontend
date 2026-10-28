@@ -13,8 +13,8 @@ interface Options {
 }
 
 /**
- * Minimal STOMP 1.2 client for the one documented emergency topic. It keeps no
- * persisted queue: a caller may retain one logical message and retry its UUID.
+ * Cliente mínimo STOMP 1.2 para el único canal de emergencia documentado. No mantiene una cola
+ * persistida: quien lo invoca puede conservar un mensaje lógico y reintentar con su UUID.
  */
 export class EmergencyStompClient {
   private socket: WebSocket | null = null;
@@ -48,6 +48,7 @@ export class EmergencyStompClient {
       destination: `/app/emergencies/${this.options.emergencyId}/messages`,
       'content-type': 'application/json',
     }, JSON.stringify({ clientMessageId, content }));
+    return true;
   }
 
   private open() {
@@ -123,25 +124,23 @@ export class EmergencyStompClient {
       }
       if (event.type === 'EMERGENCY_STATUS_CHANGED' && event.status) this.options.onEmergencyStatus(event.status);
     } catch {
-      // A malformed frame cannot be treated as a confirmed message.
+      // Una trama malformada no puede tratarse como un mensaje confirmado.
     }
   }
 
   private scheduleReconnect() {
     if (this.stopped) return;
     const delays = [1_000, 2_000, 5_000];
-    const delay = delays[this.retry];
-    if (delay === undefined) {
-      this.options.onConnection('degraded');
-      return;
-    }
+    this.options.onConnection(this.retry >= 3 ? 'degraded' : 'connecting');
+    const delay = delays[Math.min(this.retry, delays.length - 1)];
     this.retry += 1;
     this.reconnectTimer = setTimeout(() => this.open(), delay);
   }
 
   private frame(command: string, headers: Record<string, string>, body = '') {
     const headerLines = Object.entries(headers).map(([name, value]) => `${name}:${value}`);
-    this.socket?.send(`${command}\n${headerLines.join('\n')}\n\n${body}\0`);
+    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) throw new Error('El canal de conversación no está conectado.');
+    this.socket.send(`${command}\n${headerLines.join('\n')}\n\n${body}\0`);
   }
 }
 

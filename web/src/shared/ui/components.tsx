@@ -103,6 +103,7 @@ const statusIcons: Record<
   failed: 'error',
 };
 
+// Combina texto e icono para que el estado no dependa únicamente del color.
 export function StatusBadge({
   status,
 }: {
@@ -131,6 +132,7 @@ export function StatusBadge({
   );
 }
 
+// Presenta carga, errores y ausencia de datos con anuncios accesibles que no interrumpen al lector.
 export function StatePanel({
   kind,
   title,
@@ -196,6 +198,7 @@ export function Notice({
   );
 }
 
+// Gestiona el foco del diálogo y lo devuelve al elemento anterior cuando se cierra.
 export function Modal({
   open,
   title,
@@ -227,6 +230,7 @@ export function Modal({
     focusable?.focus();
     const handleKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
+      // Mantiene la navegación con Tab y Shift+Tab dentro de los controles del diálogo.
       if (event.key !== 'Tab' || !dialog) return;
       const items = Array.from(
         dialog.querySelectorAll<HTMLElement>(

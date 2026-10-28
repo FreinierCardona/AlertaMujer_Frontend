@@ -34,14 +34,14 @@ export default function EmergencyDetailScreen() {
   }, [id, t]);
   const row = (label: string, value: string) => <View style={{ marginBottom: spacing.md }}><Text style={{ color: colors.textMedium, fontSize: 12 }}>{label}</Text><Text style={{ color: colors.textDark, fontWeight: '600', marginTop: 3 }}>{value}</Text></View>;
   return <AppScreen>
-    <ScreenHeader canGoBack onBack={() => router.replace(Routes.history)} title={t('history.detailTitle')} subtitle={id ? t('emergency.reference', { id }) : undefined} />
+    <ScreenHeader canGoBack onBack={() => router.replace(Routes.history)} title={t('history.detailTitle')} subtitle={t('history.alertTitle')} />
     {error ? <StatusBanner tone="danger" title={t('common.error')} message={error} /> : null}
     {!item && !error ? <StatusBanner title={t('common.loading')} /> : null}
     {item ? <><StatusBanner tone={item.status === 'FINALIZED' ? 'success' : 'info'} title={item.status === 'FINALIZED' ? t('history.finalized') : item.status} />
       <AppCard style={{ marginTop: spacing.md }}>
         {row(t('history.start'), new Date(item.startedAt).toLocaleString())}
         {row(t('history.end'), item.finalizedAt ? new Date(item.finalizedAt).toLocaleString() : '—')}
-        {row(t('emergency.lastSync'), item.lastHeartbeatAt ? new Date(item.lastHeartbeatAt).toLocaleString() : '—')}
+        {row(t('emergency.lastSync', { value: '' }).replace(/:\s*$/, ''), item.lastHeartbeatAt ? new Date(item.lastHeartbeatAt).toLocaleString() : '—')}
         {row(t('history.message'), item.messageSnapshot)}
         {row(
           t('emergency.location'),

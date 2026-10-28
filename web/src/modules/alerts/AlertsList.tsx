@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useVisibleRefresh } from '../../shared/hooks/useVisibleRefresh';
 import { useNavigation } from '../../app/navigation';
 import { ApiError } from '../../shared/api/client';
 import { adminEmergencyApi } from '../../shared/api/emergencyApi';
@@ -15,7 +16,7 @@ const statusMap: Record<RemoteEmergencyStatus, AlertStatus> = {
 };
 const toStatus = (status: RemoteEmergencyStatus): AlertStatus => statusMap[status];
 
-/** Administrative emergency list consumes only the fields the list contract actually exposes. */
+/** El listado administrativo de emergencias consume únicamente los campos expuestos por su contrato. */
 export function AlertsList() {
   const { t, language } = usePreferences();
   const { filters, setFilters } = useWebState();
@@ -46,6 +47,11 @@ export function AlertsList() {
     const timer = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(timer);
   }, [load]);
+  const refreshVisible = useCallback(async (current: () => boolean) => {
+    try { const next = await adminEmergencyApi.list(filters.alertPage - 1, PAGE_SIZE, status); if (current()) { setItems(next.items); setTotal(next.total); setError(null); } }
+    catch (cause) { if (current() && cause instanceof ApiError && cause.status === 403) { setItems([]); setTotal(0); setError('denied'); } }
+  }, [filters.alertPage, status]);
+  useVisibleRefresh(refreshVisible);
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return <div>
@@ -65,10 +71,10 @@ export function AlertsList() {
     {error === 'error' ? <StatePanel kind="error" title={t('error')} message={t('alertsError')} action={<Button icon="refresh" onClick={() => void load()}>{t('retry')}</Button>} /> : null}
     {!loading && !error && (items.length === 0 ? <StatePanel kind="empty" message={t('noAlerts')} /> : (
       <section className="panel-card table-card"><div className="responsive-table"><table><thead><tr>
-        <th>{t('status')}</th><th>ID</th><th>{t('startDate')}</th><th>{t('actions')}</th>
+        <th>{t('status')}</th><th>Titular</th><th>{t('startDate')}</th><th>{t('actions')}</th>
       </tr></thead><tbody>{items.map((item) => <tr key={item.emergencyId}>
         <td data-label={t('status')}><StatusBadge status={toStatus(item.status)} /></td>
-        <td data-label="ID"><strong>{item.emergencyId}</strong></td>
+        <td data-label="Titular"><strong>{item.displayName || 'Alerta de emergencia'}</strong><br />{item.username}</td>
         <td data-label={t('startDate')}>{formatDateTime(item.startedAt, language)}</td>
         <td data-label={t('actions')}><Button variant="secondary" icon="eye" onClick={() => navigate(`/admin/alertas/${item.emergencyId}`)}>{t('viewDetail')}</Button></td>
       </tr>)}</tbody></table></div>

@@ -1,8 +1,8 @@
 // Busca el directorio remoto y crea invitaciones sin almacenar relaciones locales.
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import AppScreen from '@shared/ui/AppScreen';
 import AppCard from '@shared/ui/AppCard';
 import AppButton from '@shared/ui/AppButton';
@@ -11,7 +11,7 @@ import ConfirmModal from '@shared/ui/ConfirmModal';
 import ScreenHeader from '@shared/ui/ScreenHeader';
 import StatusBanner from '@shared/ui/StatusBanner';
 import { contactsApi } from '@core/api';
-import type { ContactInvitation, DirectoryUser } from '@core/api';
+import type { ContactInvitation, ContactRelationship, DirectoryUser } from '@core/api';
 import Routes from '@shell/navigation/routes';
 import useAppState from '@shell/providers/useAppState';
 import { useAppTheme } from '@shared/theme';
@@ -35,6 +35,8 @@ export default function ContactFormScreen() {
   const [searchError, setSearchError] = useState<string | null>(null);
   const [target, setTarget] = useState<DirectoryUser | null>(null);
   const [inviting, setInviting] = useState(false);
+  const [relationships, setRelationships] = useState<ContactRelationship[]>([]);
+  const [invitedName, setInvitedName] = useState('');
   const [invitation, setInvitation] = useState<ContactInvitation | null>(null);
   const [inviteError, setInviteError] = useState<string | null>(null);
   const trimmedQuery = useMemo(() => query.trim(), [query]);
@@ -68,13 +70,54 @@ export default function ContactFormScreen() {
     };
   }, [t, trimmedQuery]);
 
+  useFocusEffect(useCallback(() => {
+    let disposed = false;
+    let busy = false;
+    const load = async () => {
+      if (busy) return;
+      busy = true;
+      try {
+        const items: ContactRelationship[] = [];
+        let page = 0;
+        let total = 0;
+        do {
+          const response = await contactsApi.list(page++, 50);
+          items.push(...response.items); total = response.total;
+          if (response.items.length === 0) break;
+        } while (items.length < total && !disposed);
+        if (!disposed) {
+          setRelationships(items);
+          setInvitation((current) => current ? items.find((item) => item.contactId === current.contactId) ?? current : null);
+        }
+      } catch { if (!disposed) setInviteError('No fue posible actualizar las invitaciones. Inténtalo de nuevo.'); }
+      finally { busy = false; }
+    };
+    void load();
+    const timer = setInterval(() => void load(), 5000);
+    return () => { disposed = true; clearInterval(timer); };
+  }, []));
+  const invitationStatus = invitation?.status;
+  useEffect(() => {
+    if (!invitationStatus || invitationStatus === 'PENDING') return;
+    const timer = setTimeout(() => setInvitation(null), 5000);
+    return () => clearTimeout(timer);
+  }, [invitationStatus]);
+  const blocked = (user: DirectoryUser) => relationships.some((relation) =>
+    relation.counterpart.username === user.username && (relation.status === 'PENDING' || relation.status === 'ACCEPTED'));
+
   const sendInvitation = async () => {
-    if (!target || inviting) return;
+    if (!target || inviting || blocked(target)) return;
     setInviting(true);
     setInviteError(null);
     try {
-      const created = await contactsApi.invite(normalizedUsername(target.username));
+      const existing = relationships.find((item) => item.counterpart.username === target.username);
+      const created = existing?.allowedActions.includes('REINVITE')
+        ? await contactsApi.reinvite(existing.contactId)
+        : await contactsApi.invite(normalizedUsername(target.username));
       setInvitation(created);
+      setInvitedName(`${target.firstNames} ${target.lastNames}`.trim());
+      setRelationships((current) => [...current.filter((item) => item.contactId !== created.contactId),
+        { ...created, counterpart: target, direction: 'SENT', eligible: false, allowedActions: [] }]);
       await refreshContacts().catch(() => undefined);
     } catch (error) {
       setInviteError(error instanceof Error ? error.message : t('common.error'));
@@ -94,14 +137,8 @@ export default function ContactFormScreen() {
       {invitation ? (
         <StatusBanner
           tone="success"
-          title={t('contacts.invitationSent')}
-          message={t('contacts.invitationResult', {
-            id: invitation.contactId,
-            status: t(`contacts.status.${invitation.status}`),
-            expires: invitation.expiresAt
-              ? new Date(invitation.expiresAt).toLocaleString()
-              : t('contacts.noExpiry'),
-          })}
+          title={invitation.status === 'PENDING' ? t('contacts.invitationSent') : t(`contacts.status.${invitation.status}`)}
+          message={`${invitedName}\n${t(`contacts.status.${invitation.status}`)}\n${invitation.expiresAt ? new Date(invitation.expiresAt).toLocaleString() : t('contacts.noExpiry')}`}
         />
       ) : null}
       {inviteError ? (
@@ -171,6 +208,8 @@ export default function ContactFormScreen() {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={t('contacts.invite')}
+              disabled={inviting || blocked(user)}
+              accessibilityState={{ disabled: inviting || blocked(user) }}
               onPress={() => setTarget(user)}
               style={[styles.invite, { borderColor: colors.primary }]}
             >
@@ -180,7 +219,7 @@ export default function ContactFormScreen() {
                 color={colors.primary}
               />
               <Text style={{ color: colors.primary, fontWeight: '600' }}>
-                {t('contacts.invite')}
+                {blocked(user) ? 'Invitación registrada' : t('contacts.invite')}
               </Text>
             </Pressable>
           </View>

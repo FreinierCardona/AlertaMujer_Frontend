@@ -54,7 +54,7 @@ export default function VerifyCodeScreen() {
       setV2Flow(stored);
       if (channel !== 'PHONE_SIMULATOR') return;
       if (Platform.OS !== 'android') {
-        setMessage({ tone: 'warning', text: 'El simulador solo autocompleta en Android. Si tu entorno de prueba te entrega el código, puedes ingresarlo manualmente; no se envía ningún SMS.' });
+        setMessage({ tone: 'warning', text: 'Ingresa el código de prueba que te proporcionaron. No recibirás un SMS.' });
         return;
       }
       const simulatedCode = phoneFirstRegistrationSimulator.get(stored.registrationRequestId);
@@ -122,7 +122,7 @@ export default function VerifyCodeScreen() {
       if (params.flow === 'contact' && params.field && params.destination) {
         const issued = await requestContactChange(params.field, params.destination);
         setEnteredCode(issued.simulatedSmsCode ?? '');
-        setMessage({ tone: 'success', text: params.field === 'phone' ? 'El simulador preparó un nuevo código para confirmar tu número.' : 'Enviamos un nuevo código a tu correo.' });
+        setMessage({ tone: 'success', text: params.field === 'phone' ? 'Tu nuevo código de prueba está listo. No recibirás un SMS.' : 'Enviamos un nuevo código a tu correo.' });
         return;
       }
       if (isV2Registration && params.registrationRequestId && v2Flow) {
@@ -130,7 +130,7 @@ export default function VerifyCodeScreen() {
         if (channel === 'PHONE_SIMULATOR') {
           phoneFirstRegistrationSimulator.set(params.registrationRequestId, issued.simulatedPhoneCode);
           if (Platform.OS === 'android' && issued.simulatedPhoneCode) setEnteredCode(issued.simulatedPhoneCode);
-          setMessage({ tone: 'success', text: 'El simulador preparó un nuevo código para tu dispositivo Android.' });
+          setMessage({ tone: 'success', text: 'Tu nuevo código de prueba está listo en tu dispositivo.' });
         } else {
           setMessage({ tone: 'success', text: 'Enviamos un nuevo código a tu correo.' });
         }
@@ -139,7 +139,7 @@ export default function VerifyCodeScreen() {
       if (params.flow === 'registration' && params.registrationRequestId) {
         const issued = await identityApi.issueRegistrationCode(params.registrationRequestId, channel as 'EMAIL' | 'SMS');
         setEnteredCode(issued.simulatedSmsCode ?? '');
-        setMessage({ tone: 'success', text: channel === 'SMS' ? 'El simulador preparó un nuevo código para confirmar tu número.' : 'Enviamos un nuevo código a tu correo.' });
+        setMessage({ tone: 'success', text: channel === 'SMS' ? 'Tu nuevo código de prueba está listo. No recibirás un SMS.' : 'Enviamos un nuevo código a tu correo.' });
       }
     } catch {
       setMessage({ tone: 'danger', text: 'No pudimos reenviar el código. Espera un momento e inténtalo de nuevo.' });
@@ -148,28 +148,19 @@ export default function VerifyCodeScreen() {
     }
   };
 
-  const successMessage = params.notice === 'phoneVerificationIssued'
-    ? 'Primero confirmemos tu teléfono. El simulador completa el código en Android; no se envía ningún SMS.'
-    : params.notice === 'emailVerificationIssued'
-      ? 'Tus credenciales están listas. Revisa el código enviado a tu correo para activar tu cuenta.'
-      : params.notice === 'registrationRequestCreated'
-        ? 'Tu solicitud está lista. Revisa el código que enviamos a tu correo.'
-        : params.notice === 'emailVerified'
-          ? 'Correo confirmado. Ahora valida tu número de teléfono para terminar el registro.'
-          : null;
   const disabled = loading || code.length !== 6 || (isV2Registration && !v2Flow);
 
   return (
     <AppScreen>
-      <ScreenHeader canGoBack title="Verifica tu código" subtitle={isV2PhoneSimulator ? 'Esta verificación temporal usa el autocompletado del simulador en Android.' : 'Ingresa el código enviado al destino indicado.'} />
-      {successMessage ? <StatusBanner tone="success" title="Vamos bien" message={successMessage} /> : null}
+      <ScreenHeader canGoBack title="Verifica tu código" subtitle={isV2PhoneSimulator ? 'Confirma el código de prueba que aparece en tu dispositivo. No recibirás un SMS.' : 'Ingresa el código de seis dígitos enviado a:'} />
       {destination ? <Text style={{ color: colors.primary, textAlign: 'center', marginBottom: spacing.lg }}>{maskDestination(destination)}</Text> : null}
       <TextInput accessibilityLabel="Código de verificación" value={code} onChangeText={(value) => { setEnteredCode(onlyDigits(value, 6)); setMessage(null); }} keyboardType="number-pad" maxLength={6} textAlign="center" style={[styles.code, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.textDark, fontSize: typography.xl, letterSpacing: 12 }]} />
-      {message ? <StatusBanner tone={message.tone} title={message.tone === 'success' ? 'Listo' : 'Verificación'} message={message.text} /> : null}
+      {message && message.tone !== 'success' ? <StatusBanner tone={message.tone} title="Verificación" message={message.text} /> : null}
       <View style={{ height: spacing.md }} />
       <AppButton title="Verificar" onPress={() => void verify()} disabled={disabled} loading={loading} />
       <View style={{ height: spacing.sm }} />
       <AppButton title="Reenviar código" onPress={() => void resend()} disabled={isV2Registration && !v2Flow} variant="ghost" loading={loading} />
+      {message?.tone === 'success' ? <Text accessibilityLiveRegion="polite" style={{ color: colors.textMedium, marginTop: spacing.sm, textAlign: 'center' }}>{message.text}</Text> : null}
     </AppScreen>
   );
 }

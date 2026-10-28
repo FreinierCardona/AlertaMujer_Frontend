@@ -1,5 +1,6 @@
 // Presenta únicamente los campos auditables que el contrato confirma.
 import { useCallback, useEffect, useState } from 'react';
+import { useVisibleRefresh } from '../../shared/hooks/useVisibleRefresh';
 import { adminUsersApi, type AuditLog, type PageResponse } from '../../shared/api/adminUsersApi';
 import { ApiError } from '../../shared/api/client';
 import { usePreferences } from '../../shared/preferences/PreferencesContext';
@@ -32,6 +33,11 @@ export function AuditPage() {
     const timer = window.setTimeout(() => { void load(); }, 0);
     return () => window.clearTimeout(timer);
   }, [load]);
+  const refreshVisible = useCallback(async (current: () => boolean) => {
+    try { const next = await adminUsersApi.auditLogs(page, PAGE_SIZE); if (current()) { setResult(next); setError(null); } }
+    catch (cause) { if (current() && cause instanceof ApiError && cause.status === 403) { setResult(null); setError(cause); } }
+  }, [page]);
+  useVisibleRefresh(refreshVisible);
 
   const denied = error?.status === 403;
   const totalPages = result ? Math.max(1, Math.ceil(result.total / result.size)) : 1;

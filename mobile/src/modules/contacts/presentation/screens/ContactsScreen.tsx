@@ -1,5 +1,5 @@
 // Presenta únicamente relaciones confirmadas por el Backend y sus acciones autorizadas.
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -35,6 +35,12 @@ export default function ContactsScreen() {
   const [actionInFlight, setActionInFlight] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!actionSuccess) return;
+    const timer = setTimeout(() => setActionSuccess(null), 5000);
+    return () => clearTimeout(timer);
+  }, [actionSuccess]);
 
   useFocusEffect(
     useCallback(() => {

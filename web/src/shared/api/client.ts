@@ -1,3 +1,6 @@
+import { apiErrorMessage } from './apiErrorMessage';
+
+// Conserva código, estado HTTP e identificador de solicitud junto al mensaje para la interfaz.
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -22,17 +25,20 @@ type RequestOptions = {
   authenticated?: boolean;
   retrying?: boolean;
 };
+
 type BackendError = {
   code?: string;
   message?: string;
   requestId?: string;
   fields?: ApiFieldError[];
 };
+
 const BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '');
 const WS_BASE_URL = (import.meta.env.VITE_WS_BASE_URL ?? '').replace(/\/$/, '');
 const timeoutValue = Number(import.meta.env.VITE_API_TIMEOUT_MS ?? 15_000);
 const REQUEST_TIMEOUT_MS = Number.isFinite(timeoutValue) && timeoutValue > 0 ? timeoutValue : 15_000;
 
+// Usa la URL de WebSocket explícita o deriva ws/wss de la base HTTP configurada.
 export const webSocketUrl = () => {
   const origin = WS_BASE_URL || BASE_URL.replace(/^http/i, 'ws');
   return origin ? `${origin}/ws` : '';
@@ -49,29 +55,35 @@ class WebApiClient {
     this.invalidate = invalidate;
   }
 
-  setAccessToken(token: string | null) { this.accessToken = token; }
-  getAccessToken() { return this.accessToken; }
+  setAccessToken(token: string | null) {
+    this.accessToken = token;
+  }
+
+  getAccessToken() {
+    return this.accessToken;
+  }
 
   async request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-    if (!BASE_URL) throw new ApiError('La URL del servicio no está configurada.', 'CONFIGURATION_ERROR');
+    if (!BASE_URL) throw new ApiError('El servicio no está disponible. Inténtalo de nuevo más tarde.', 'CONFIGURATION_ERROR');
     const response = await this.fetch(path, options);
     const payload = await responsePayload(response);
+    // Limita a un intento la repetición de una solicitud autenticada tras renovar la sesión.
     if (response.status === 401 && (options.authenticated ?? true) && !options.retrying) {
       if (await this.renew()) return this.request<T>(path, { ...options, retrying: true });
       this.invalidate?.();
     }
-    if (!response.ok) throw backendError(payload, response.status);
+    if (!response.ok) throw backendError(payload, response.status, path);
     return payload as T;
   }
 
   async blob(path: string, retrying = false): Promise<Blob> {
-    if (!BASE_URL) throw new ApiError('La URL del servicio no está configurada.', 'CONFIGURATION_ERROR');
+    if (!BASE_URL) throw new ApiError('El servicio no está disponible. Inténtalo de nuevo más tarde.', 'CONFIGURATION_ERROR');
     const response = await this.fetch(path, { authenticated: true, retrying });
     if (response.status === 401 && !retrying && await this.renew()) return this.blob(path, true);
     if (!response.ok) {
       const payload = await responsePayload(response);
       if (response.status === 401) this.invalidate?.();
-      throw backendError(payload, response.status);
+      throw backendError(payload, response.status, path);
     }
     return response.blob();
   }
@@ -102,6 +114,7 @@ class WebApiClient {
     }
   }
 
+  // Las respuestas 401 concurrentes comparten una sola renovación del token.
   private async renew() {
     if (!this.refresh) return false;
     if (!this.refreshInFlight) this.refreshInFlight = this.refresh().finally(() => { this.refreshInFlight = null; });
@@ -109,20 +122,21 @@ class WebApiClient {
   }
 }
 
+// Tolera respuestas sin cuerpo o sin JSON; el estado HTTP se evalúa después de esta lectura.
 async function responsePayload(response: Response): Promise<unknown> {
   const body = await response.text();
   if (!body) return undefined;
   try { return JSON.parse(body) as unknown; } catch { return undefined; }
 }
 
-function backendError(payload: unknown, status: number) {
+function backendError(payload: unknown, status: number, path: string) {
   const error = (payload ?? {}) as BackendError;
   return new ApiError(
-    error.message ?? 'No fue posible completar la operación.',
+    apiErrorMessage(error.code ?? '', status, path),
     error.code ?? `HTTP_${status}`,
     status,
     error.requestId,
-    Array.isArray(error.fields) ? error.fields : [],
+    Array.isArray(error.fields) ? error.fields.map((field) => ({ field: field.field, message: 'Revisa este dato e inténtalo de nuevo.' })) : [],
   );
 }
 

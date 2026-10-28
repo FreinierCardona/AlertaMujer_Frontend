@@ -1,10 +1,11 @@
 import { useCallback, useState } from 'react';
-import { Linking, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { AppState, Linking, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { ApiError, contactAlertsApi } from '@core/api';
 import type { ContactAlertDetail } from '@core/api';
 import EvidenceGallery from '@modules/evidence/presentation/components/EvidenceGallery';
 import { contactAlertMapsUrl, isContactAlertAccessRevoked } from '@modules/notifications/application/contactAlertDetail';
+import MapView, { Marker } from 'react-native-maps';
 import Routes from '@shell/navigation/routes';
 import AppButton from '@shared/ui/AppButton';
 import AppCard from '@shared/ui/AppCard';
@@ -30,28 +31,36 @@ export default function ContactAlertDetailScreen() {
     router.replace(Routes.notifications);
   }, [router]);
 
-  const load = useCallback(async (manual = false) => {
+  const load = useCallback(async (manual = false, silent = false) => {
     if (!id) {
       returnToSafeList();
       return;
     }
-    if (manual) setRefreshing(true); else setLoading(true);
-    setError(null);
+    if (manual) setRefreshing(true); else if (!silent) setLoading(true);
+    if (!silent) setError(null);
     try {
       setAlert(await contactAlertsApi.detail(id));
+      setError(null);
     } catch (cause) {
       if (cause instanceof ApiError && isContactAlertAccessRevoked(cause.status)) {
         returnToSafeList();
         return;
       }
-      setError(cause instanceof ApiError ? cause.message : t('notifications.detailLoadError'));
+      if (!silent) setError(cause instanceof ApiError ? cause.message : t('notifications.detailLoadError'));
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   }, [id, returnToSafeList, t]);
 
-  useFocusEffect(useCallback(() => { void load(); }, [load]));
+  useFocusEffect(useCallback(() => {
+    let busy = false;
+    const refresh = async () => { if (busy || AppState.currentState !== 'active') return; busy = true; try { await load(false, true); } finally { busy = false; } };
+    void load();
+    const timer = setInterval(() => void refresh(), 5000);
+    const subscription = AppState.addEventListener('change', (state) => { if (state === 'active') void refresh(); });
+    return () => { clearInterval(timer); subscription.remove(); };
+  }, [load]));
 
   const openMaps = useCallback(async () => {
     const url = contactAlertMapsUrl(alert?.lastConfirmedLocation ?? null);
@@ -89,9 +98,9 @@ export default function ContactAlertDetailScreen() {
         ) : null}
         {alert ? (
           <>
-            <StatusBanner tone="info" title={t(`notifications.status.${alert.status}`)} />
+            <StatusBanner tone={alert.status === 'ACTIVE' ? 'danger' : alert.status === 'IN_PROGRESS' ? 'info' : 'warning'} title={`Estado de la alerta: ${t(`notifications.status.${alert.status}`)}`} />
             <AppCard style={{ marginTop: spacing.md }}>
-              {row(t('notifications.person'), alert.userDisplayName)}
+              {row('Activada por', alert.userDisplayName)}
               {row(t('notifications.startedAt'), new Date(alert.startedAt).toLocaleString())}
               {row(t('notifications.message'), alert.messageSnapshot)}
               {row(
@@ -100,6 +109,10 @@ export default function ContactAlertDetailScreen() {
                   ? `${alert.lastConfirmedLocation.latitude.toFixed(5)}, ${alert.lastConfirmedLocation.longitude.toFixed(5)}`
                   : t('notifications.locationUnavailable'),
               )}
+              {alert.lastConfirmedLocation ? <MapView style={{ height: 240, marginBottom: spacing.md }}
+                region={{ latitude: alert.lastConfirmedLocation.latitude, longitude: alert.lastConfirmedLocation.longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 }}>
+                <Marker coordinate={alert.lastConfirmedLocation} title={alert.userDisplayName} />
+              </MapView> : null}
               {mapUrl ? <AppButton title={t('notifications.openMaps')} onPress={() => void openMaps()} variant="outline" /> : null}
               {mapsError ? <View style={{ marginTop: spacing.sm }}><StatusBanner tone="warning" title={t('notifications.mapsUnavailable')} message={mapsError} /></View> : null}
             </AppCard>

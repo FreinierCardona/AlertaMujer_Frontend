@@ -1,4 +1,4 @@
-// @ts-nocheck -- executed by Node's TypeScript runner; the Expo app has no Node test typings.
+// @ts-nocheck -- ejecutado por el intérprete TypeScript de Node; la aplicación Expo no incluye tipos de pruebas de Node.
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { phoneFirstRegistrationSimulator } from '../src/modules/identity/application/phoneFirstRegistrationSimulator.ts';

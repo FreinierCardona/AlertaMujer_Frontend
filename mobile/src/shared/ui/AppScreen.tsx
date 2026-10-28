@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '@shared/theme';
+
 export default function AppScreen({
   children,
   scroll = true,
@@ -16,6 +17,7 @@ export default function AppScreen({
   scroll?: boolean;
 }) {
   const { colors, spacing } = useAppTheme();
+  // El desplazamiento es opcional para que pantallas como mapas puedan ocupar todo el espacio.
   const content = scroll ? (
     <ScrollView
       keyboardShouldPersistTaps="handled"
@@ -41,6 +43,7 @@ export default function AppScreen({
     </SafeAreaView>
   );
 }
+
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   content: { flexGrow: 1, paddingBottom: 40 },

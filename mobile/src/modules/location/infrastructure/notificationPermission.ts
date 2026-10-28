@@ -1,4 +1,4 @@
-// Ofrece un fallback seguro para plataformas sin una implementación móvil específica.
+// Ofrece una alternativa segura para plataformas sin una implementación móvil específica.
 export async function inspectNotificationPermission() {
   return { granted: false };
 }
