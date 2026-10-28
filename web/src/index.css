@@ -284,6 +284,10 @@ textarea:focus-visible {
   border-radius: 10px;
   color: var(--text-soft);
 }
+select option {
+  color: var(--text);
+  background-color: var(--surface);
+}
 .select-control select {
   appearance: none;
   border: 0;

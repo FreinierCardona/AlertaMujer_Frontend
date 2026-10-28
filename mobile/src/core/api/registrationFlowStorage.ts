@@ -2,6 +2,7 @@ import * as SecureStore from 'expo-secure-store';
 
 const PHONE_FIRST_REGISTRATION_KEY = 'alertamujer.phone-first-registration';
 
+// Datos necesarios para retomar el registro; registrationProof acredita la continuidad del flujo.
 export type PhoneFirstRegistrationFlow = {
   registrationRequestId: string;
   registrationProof: string;
@@ -15,6 +16,7 @@ export const registrationFlowStorage = {
     if (!stored) return null;
     try {
       return JSON.parse(stored) as PhoneFirstRegistrationFlow;
+    // Descarta datos que no puedan leerse como JSON para permitir iniciar de nuevo el registro.
     } catch {
       await SecureStore.deleteItemAsync(PHONE_FIRST_REGISTRATION_KEY);
       return null;

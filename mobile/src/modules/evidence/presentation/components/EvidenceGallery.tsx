@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useRef, useState } from 'react';
+import { AppState, Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ApiError, contactAlertsApi, evidenceApi } from '@core/api';
 import type { EvidenceResponse } from '@core/api';
@@ -10,7 +11,7 @@ import AppButton from '@shared/ui/AppButton';
 
 type EvidenceAccess = 'owner' | 'contact';
 
-/** Lists only Backend-confirmed metadata and keeps protected bytes in component memory. */
+/** Lista solo metadatos confirmados por el servidor y conserva los bytes protegidos en la memoria del componente. */
 export default function EvidenceGallery({
   emergencyId,
   access = 'owner',
@@ -22,6 +23,7 @@ export default function EvidenceGallery({
 }) {
   const [index, setIndex] = useState<number | null>(null);
   const [items, setItems] = useState<EvidenceResponse[]>([]);
+  const knownIds = useRef(new Set<string>());
   const [uris, setUris] = useState<Record<string, string>>({});
   const [failed, setFailed] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,29 +53,33 @@ export default function EvidenceGallery({
     }
   }, [access, emergencyId, notifyRevocation]);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    setUris({});
-    setFailed([]);
+  const load = useCallback(async (silent = false) => {
+    if (!silent) { setLoading(true); setError(null); }
     try {
       const response = access === 'contact'
         ? await contactAlertsApi.evidences(emergencyId)
         : await evidenceApi.list(emergencyId);
       setItems(response);
-      void Promise.all(response.map((item) => loadImage(item.evidenceId)));
+      setError(null);
+      const added = response.filter((item) => !knownIds.current.has(item.evidenceId));
+      knownIds.current = new Set(response.map((item) => item.evidenceId));
+      void Promise.all(added.map((item) => loadImage(item.evidenceId)));
     } catch (cause) {
       if (notifyRevocation(cause)) return;
-      setError(cause instanceof ApiError ? cause.message : t('common.error'));
+      if (!silent) setError(cause instanceof ApiError ? cause.message : t('common.error'));
     } finally {
       setLoading(false);
     }
   }, [access, emergencyId, loadImage, notifyRevocation, t]);
 
-  useEffect(() => {
-    const timer = setTimeout(() => void load(), 0);
-    return () => clearTimeout(timer);
-  }, [load]);
+  useFocusEffect(useCallback(() => {
+    let busy = false;
+    const refresh = async () => { if (busy || AppState.currentState !== 'active') return; busy = true; try { await load(true); } finally { busy = false; } };
+    void load();
+    const timer = access === 'contact' ? setInterval(() => void refresh(), 10000) : undefined;
+    const subscription = AppState.addEventListener('change', (state) => { if (state === 'active' && access === 'contact') void refresh(); });
+    return () => { if (timer) clearInterval(timer); subscription.remove(); };
+  }, [access, load]));
 
   if (loading) return <StatusBanner title={t('common.loading')} />;
   if (error) return <><StatusBanner tone="danger" title={t('common.error')} message={error} />

@@ -31,10 +31,11 @@ export default function AppButton({
     danger: colors.danger,
     ghost: 'transparent',
   };
+  // La variante primaria ajusta el texto en modo oscuro para mantenerlo visible sobre su fondo.
   const foregrounds = {
     primary: resolvedMode === 'dark' ? '#241326' : colors.textWhite,
     outline: colors.primary,
-    danger: colors.textWhite,
+    danger: resolvedMode === 'dark' ? '#241326' : colors.textWhite,
     ghost: colors.textDark,
   };
   return (
@@ -77,6 +78,7 @@ export default function AppButton({
     </Pressable>
   );
 }
+
 const styles = StyleSheet.create({
   button: {
     minHeight: 50,

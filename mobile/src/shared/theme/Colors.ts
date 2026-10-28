@@ -53,6 +53,7 @@ export const darkColors: AppColors = {
   dangerDark: '#FF9AB2',
   warning: '#FFC56E',
   warningLight: '#3B2C12',
+  info: '#8DB9FF',
   infoLight: '#182B4E',
   overlay: 'rgba(0, 0, 0, 0.72)',
   cardPurple: '#2C1E35',

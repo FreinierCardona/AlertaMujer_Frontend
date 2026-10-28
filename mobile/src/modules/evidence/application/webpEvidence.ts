@@ -13,6 +13,7 @@ export type WebpEvidence = {
 
 type CapturedAsset = { uri: string; width: number; height: number };
 
+// Reduce progresivamente resolución y calidad hasta cumplir el límite de bytes.
 const conversionOptions = [
   { longestSide: 1600, compress: 0.8 },
   { longestSide: 1280, compress: 0.7 },
@@ -20,6 +21,7 @@ const conversionOptions = [
   { longestSide: 800, compress: 0.5 },
 ];
 
+// Devuelve la primera conversión aceptable; distingue el exceso de tamaño del fallo de conversión.
 export async function convertCaptureToWebp(asset: CapturedAsset): Promise<WebpEvidence> {
   try {
     for (const option of conversionOptions) {
@@ -39,6 +41,7 @@ export async function convertCaptureToWebp(asset: CapturedAsset): Promise<WebpEv
   throw new EvidenceConversionError('SIZE_LIMIT');
 }
 
+// Limita el lado mayor sin ampliar fotografías que ya son más pequeñas.
 function resizeToLongestSide(asset: CapturedAsset, longestSide: number) {
   if (asset.width >= asset.height) return { width: Math.min(asset.width, longestSide) };
   return { height: Math.min(asset.height, longestSide) };

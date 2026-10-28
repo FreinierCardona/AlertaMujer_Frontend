@@ -1,4 +1,4 @@
-// Proporciona el layout protegido, responsivo y consistente del panel administrativo.
+// Proporciona la estructura protegida, adaptable y consistente del panel administrativo.
 import { useState, type ReactNode } from 'react';
 import { Link, useNavigation } from '../app/navigation';
 import { usePreferences } from '../shared/preferences/PreferencesContext';

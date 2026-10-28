@@ -1,4 +1,4 @@
-// Entrega el estado global del aplicativo y falla con un mensaje claro fuera del provider.
+// Entrega el estado global de la aplicación y falla con un mensaje claro fuera del proveedor.
 import { useContext } from 'react';
 import { AppStateContext } from './AppStateProvider';
 export default function useAppState() {

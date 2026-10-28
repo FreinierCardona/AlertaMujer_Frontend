@@ -11,6 +11,7 @@ export interface AdminUser {
   phone: string;
   role: string;
   accountStatus: RemoteAccountStatus;
+  termsPending?: boolean;
 }
 
 export interface PageResponse<T> {
@@ -26,7 +27,13 @@ export interface AuditLog {
   createdAt: string;
 }
 
+export interface AdminRegistrationInput {
+  username: string; firstNames: string; lastNames: string; email: string; phone: string; password: string;
+}
+
 export const adminUsersApi = {
+  create: (body: AdminRegistrationInput) => webApiClient.request<{ registrationRequestId: string; status: 'COMPLETED' }>(
+    '/api/v1/admin/users', { method: 'POST', body }),
   list: (page: number, size: number) =>
     webApiClient.request<PageResponse<AdminUser>>(
       `/api/v1/admin/users?page=${page}&size=${size}`,
