@@ -32,8 +32,15 @@
       [
         "expo-image-picker",
         {
-          "cameraPermission": "AlertaMujer usa la cámara únicamente cuando decides capturar evidencia fotográfica.",
+          "cameraPermission": "AlertaMujer usa la cámara para capturar evidencia fotográfica durante una alerta activa.",
           "microphonePermission": false
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "AlertaMujer usa la cámara para capturar evidencia fotográfica durante una alerta activa.",
+          "recordAudioAndroid": false
         }
       ],
       [

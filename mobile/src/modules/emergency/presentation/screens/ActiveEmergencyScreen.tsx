@@ -14,12 +14,14 @@ import { useAppTheme } from '@shared/theme';
 import { useI18n } from '@shared/i18n';
 import { useEmergencyChat } from '@modules/chat/presentation/hooks/useEmergencyChat';
 import EvidenceGallery from '@modules/evidence/presentation/components/EvidenceGallery';
+import AutomaticEvidenceCapture from '@modules/evidence/presentation/components/AutomaticEvidenceCapture';
 
 export default function ActiveEmergencyScreen() {
   const router = useRouter();
   const { activeEmergency, backgroundMessage, finishEmergency } = useAppState();
   const { t } = useI18n();
   const { colors, spacing, typography } = useAppTheme();
+  const segments = useSegments();
   const [finish, setFinish] = useState(false);
   const [finishing, setFinishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,6 +33,8 @@ export default function ActiveEmergencyScreen() {
   const statusKey = activeEmergency.status === 'inProgress' ? 'emergency.inProgress' : activeEmergency.status === 'offline' ? 'emergency.offline' : 'emergency.active';
   const tone = activeEmergency.status === 'offline' ? 'warning' : activeEmergency.status === 'inProgress' ? 'info' : 'danger';
   const location = activeEmergency.lastConfirmedLocation;
+  const automaticCaptureEnabled = (activeEmergency.status === 'active' || activeEmergency.status === 'inProgress' || activeEmergency.status === 'offline')
+    && !segments.join('/').includes('evidence/capture');
   const close = async () => {
     setFinishing(true);
     setError(null);
@@ -64,6 +68,7 @@ export default function ActiveEmergencyScreen() {
       {location ? <><Text style={{ color: colors.textDark, fontWeight: '700' }}>{`${location.latitude.toFixed(5)}, ${location.longitude.toFixed(5)}`}</Text><Text style={{ color: colors.textMedium, fontSize: 12, marginTop: 3 }}>± {Math.round(location.accuracy ?? 0)} m · {new Date(location.capturedAt).toLocaleTimeString()}</Text><AppButton title="Google Maps" variant="outline" onPress={() => void Linking.openURL(`https://maps.google.com/?q=${location.latitude},${location.longitude}`)} style={{ marginTop: spacing.md }} /></> : <Text style={{ color: colors.textMedium }}>{t('emergency.noLocation')}</Text>}
       {activeEmergency.lastHeartbeatAt ? <Text style={{ color: colors.textMedium, fontSize: 12, marginTop: 8 }}>{t('emergency.lastSync', { value: new Date(activeEmergency.lastHeartbeatAt).toLocaleTimeString() })}</Text> : null}
     </AppCard>
+    <AutomaticEvidenceCapture emergencyId={activeEmergency.id} enabled={automaticCaptureEnabled} onError={setError} />
     <Text style={[styles.section, { color: colors.textDark, marginTop: spacing.lg }]}>{t('emergency.actions')}</Text>
     <View style={styles.actions}>
       <Action icon="camera-outline" label={t('emergency.evidence')} onPress={() => router.push(Routes.evidenceCapture)} />
