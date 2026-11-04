@@ -51,10 +51,11 @@ export const emergencyApi = {
   active: () => apiClient.request<EmergencyResponse>('/api/v1/emergencies/active'),
   get: (emergencyId: string) =>
     apiClient.request<EmergencyDetailResponse>(`/api/v1/emergencies/${emergencyId}`),
-  heartbeat: (emergencyId: string, input: LocationPayload) =>
+  heartbeat: (emergencyId: string, input?: LocationPayload) =>
     apiClient.request<void>(`/api/v1/emergencies/${emergencyId}/heartbeats`, {
       method: 'POST',
       body: input,
+      retryOnUnauthorized: true,
     }),
   location: (emergencyId: string, input: LocationPayload) =>
     apiClient.request<void>(`/api/v1/emergencies/${emergencyId}/locations`, {

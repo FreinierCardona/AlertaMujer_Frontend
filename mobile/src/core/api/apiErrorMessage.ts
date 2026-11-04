@@ -1,4 +1,5 @@
 export function apiErrorMessage(code: string, status: number, path: string): string {
+  if (code === 'EVIDENCE_STORAGE_UNAVAILABLE') return 'El almacenamiento de evidencia no está disponible. Conserva la alerta activa e inténtalo nuevamente.';
   if (status >= 500) return 'El servicio no está disponible en este momento. Inténtalo de nuevo más tarde.';
   if (status === 429) return 'Has realizado varios intentos. Espera un momento antes de volver a intentar.';
   if (code === 'REGISTRATION_DUPLICATE') return 'Uno de estos datos ya está registrado. Revisa tus datos o inicia sesión.';
@@ -12,6 +13,7 @@ export function apiErrorMessage(code: string, status: number, path: string): str
   }
   if (path.includes('/password')) return 'No pudimos actualizar la contraseña. Revisa los datos e inténtalo de nuevo.';
   if (status === 409 || status === 422) {
+    if (path.includes('/evidences')) return 'La fotografía debe ser WebP válido y no superar 500 KB. Verifica que la alerta siga activa.';
     if (path.includes('/contacts')) return 'La invitación o el contacto cambió. Actualiza la lista antes de continuar.';
     if (path.includes('/emergencies')) return 'El estado de la alerta cambió. Actualízala antes de continuar.';
     if (path.includes('/users')) return 'La cuenta no permite esta acción en su estado actual. Actualiza sus datos y revisa las condiciones.';

@@ -587,59 +587,76 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     if (!canUseBackgroundLocation) return;
     const title =
       language === 'es' ? 'Alerta Mujer activa' : 'Alerta Mujer active';
-    void startBackgroundLocation(activeEmergencyId, title, title)
-      .then(() => setBackgroundMessage('ok'))
-      .catch(() => setBackgroundMessage('error'));
+    const start = () => {
+      void startBackgroundLocation(activeEmergencyId, title, title)
+        .then(() => setBackgroundMessage('ok'))
+        .catch(() => setBackgroundMessage('error'));
+    };
+    start();
+    const subscription = AppState.addEventListener('change', (state) => { if (state === 'active') start(); });
+    return () => subscription.remove();
   }, [activeEmergencyId, language]);
   useEffect(() => {
-    if (!activeEmergencyId || canUseBackgroundLocation) return;
+    if (!activeEmergencyId) return;
+    let busy = false;
+    let current = true;
     const heartbeat = async () => {
-      if (!requirements.connection) {
-        setState((current) =>
-          current.activeEmergency?.id === activeEmergencyId
-            ? {
-                ...current,
-                activeEmergency: { ...current.activeEmergency, syncState: 'pending' },
-              }
-            : current,
-        );
-        return;
-      }
+      if (busy || !current || AppState.currentState !== 'active') return;
+      busy = true;
+      try {
+        await emergencyApi.heartbeat(activeEmergencyId);
+        if (!current) return;
+        setState((previous) => previous.activeEmergency?.id === activeEmergencyId
+          ? { ...previous, activeEmergency: { ...previous.activeEmergency, lastHeartbeatAt: new Date().toISOString() } }
+          : previous);
+        const confirmed = await emergencyApi.get(activeEmergencyId);
+        if (!current) return;
+        setState((previous) => previous.activeEmergency?.id === activeEmergencyId
+          ? { ...previous, activeEmergency: { ...previous.activeEmergency, status: toEmergency(confirmed).status,
+              previousOnlineStatus: toEmergency(confirmed).previousOnlineStatus } }
+          : previous);
+      } catch {
+        if (current) setState((previous) => previous.activeEmergency?.id === activeEmergencyId
+          ? { ...previous, activeEmergency: { ...previous.activeEmergency, syncState: 'pending' } }
+          : previous);
+      } finally { busy = false; }
+    };
+    void heartbeat();
+    const interval = setInterval(() => void heartbeat(), 60_000);
+    const subscription = AppState.addEventListener('change', (state) => { if (state === 'active') void heartbeat(); });
+    return () => { current = false; clearInterval(interval); subscription.remove(); };
+  }, [activeEmergencyId]);
+
+  // En Expo Go o si falla el servicio de fondo, se sigue enviando ubicación en primer plano.
+  useEffect(() => {
+    if (!activeEmergencyId || (canUseBackgroundLocation && backgroundMessage !== 'error')) return;
+    let current = true;
+    let busy = false;
+    const sendLocation = async () => {
+      if (!current || busy || AppState.currentState !== 'active') return;
+      busy = true;
       try {
         const location = await getCurrentCoordinates();
+        if (!current) return;
         await emergencyApi.heartbeat(activeEmergencyId, {
-          latitude: location.latitude,
-          longitude: location.longitude,
-          accuracyMeters: location.accuracy,
-          capturedAt: location.capturedAt,
+          latitude: location.latitude, longitude: location.longitude,
+          accuracyMeters: location.accuracy, capturedAt: location.capturedAt,
         });
-        setState((current) =>
-          current.activeEmergency?.id === activeEmergencyId
-            ? {
-                ...current,
-                activeEmergency: {
-                  ...current.activeEmergency,
-                  lastConfirmedLocation: location,
-                  lastHeartbeatAt: new Date().toISOString(),
-                  syncState: 'synced',
-                },
-              }
-            : current,
-        );
+        if (current) setState((previous) => previous.activeEmergency?.id === activeEmergencyId
+          ? { ...previous, activeEmergency: { ...previous.activeEmergency, lastConfirmedLocation: location,
+              lastHeartbeatAt: new Date().toISOString(), syncState: 'synced' } }
+          : previous);
       } catch {
-        setState((current) =>
-          current.activeEmergency?.id === activeEmergencyId
-            ? {
-                ...current,
-                activeEmergency: { ...current.activeEmergency, syncState: 'pending' },
-              }
-            : current,
-        );
-      }
+        if (current) setState((previous) => previous.activeEmergency?.id === activeEmergencyId
+          ? { ...previous, activeEmergency: { ...previous.activeEmergency, syncState: 'pending' } }
+          : previous);
+      } finally { busy = false; }
     };
-    const interval = setInterval(() => void heartbeat(), 60_000);
-    return () => clearInterval(interval);
-  }, [activeEmergencyId, requirements.connection]);
+    void sendLocation();
+    const interval = setInterval(() => void sendLocation(), 60_000);
+    const subscription = AppState.addEventListener('change', (state) => { if (state === 'active') void sendLocation(); });
+    return () => { current = false; clearInterval(interval); subscription.remove(); };
+  }, [activeEmergencyId, backgroundMessage]);
 
   const hasEligibleContact =
     contactsConfirmed &&

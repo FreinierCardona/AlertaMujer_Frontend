@@ -11,7 +11,7 @@ export class ApiError extends Error {
 }
 
 type Method = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
-type RequestOptions = { method?: Method; body?: unknown; authenticated?: boolean; retrying?: boolean; headers?: Record<string, string> };
+type RequestOptions = { method?: Method; body?: unknown; authenticated?: boolean; retrying?: boolean; retryOnUnauthorized?: boolean; headers?: Record<string, string> };
 type BackendError = { code?: string; message?: string; requestId?: string; fields?: { field?: string; message?: string }[] | Record<string, string> };
 const TIMEOUT_MS = 15_000;
 const FILE_UPLOAD_TIMEOUT_MS = 30_000;
@@ -54,8 +54,8 @@ class ApiClient {
       });
       const payload = await readPayload(response);
       if (response.status === 401 && authenticated && !options.retrying) {
-        // Solo repite lecturas GET para no reenviar automáticamente operaciones con efectos.
-        const canRetry = method === 'GET' && (await this.coordinatedRefresh());
+        // Solo las lecturas y operaciones explícitamente seguras se reintentan tras un 401.
+        const canRetry = (method === 'GET' || options.retryOnUnauthorized === true) && (await this.coordinatedRefresh());
         if (canRetry) return this.request<T>(path, { ...options, retrying: true });
         this.invalidateSession?.();
       }
@@ -96,6 +96,8 @@ class ApiClient {
     } catch (error) {
       if (error instanceof ApiError) throw error;
       const timedOut = error instanceof Error && error.name === 'AbortError';
+      // No registra URI, imagen ni credenciales; distingue fallo nativo de timeout en Metro.
+      console.warn('[evidence-upload]', timedOut ? 'timeout' : 'transport-error', error instanceof Error ? error.name : typeof error);
       throw new ApiError(timedOut ? 'La carga tardó demasiado. Inténtalo nuevamente.' : 'No fue posible conectar con el servicio. Inténtalo nuevamente.', timedOut ? 'REQUEST_TIMEOUT' : 'NETWORK_ERROR');
     } finally { clearTimeout(timeout); }
   }
