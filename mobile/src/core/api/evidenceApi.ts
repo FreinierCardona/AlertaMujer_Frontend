@@ -1,3 +1,4 @@
+import { File } from 'expo-file-system';
 import { apiClient } from './ApiClient';
 
 export interface EvidenceResponse {
@@ -12,11 +13,8 @@ export const evidenceApi = {
     apiClient.request<EvidenceResponse[]>(`/api/v1/emergencies/${emergencyId}/evidences`),
   upload: (emergencyId: string, asset: { uri: string; fileName: string; mimeType: 'image/webp' }) => {
     const form = new FormData();
-    form.append('file', {
-      uri: asset.uri,
-      name: asset.fileName,
-      type: asset.mimeType,
-    } as unknown as Blob);
+    // Expo fetch serializa File/Blob, no los objetos { uri, name, type } de React Native.
+    form.append('file', new File(asset.uri));
     return apiClient.requestMultipart<EvidenceResponse>(`/api/v1/emergencies/${emergencyId}/evidences`, form);
   },
   content: (evidenceId: string) =>
