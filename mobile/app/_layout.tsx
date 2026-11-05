@@ -1,0 +1,79 @@
+// Compone proveedores, tema global y controles de sesión y alerta para todas las rutas.
+import 'react-native-gesture-handler';
+import 'react-native-reanimated';
+import { useEffect } from 'react';
+import { Stack, useRouter, useSegments } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import ContactAlertNotice from '@modules/notifications/presentation/components/ContactAlertNotice';
+import AppProviders from '@shell/providers/AppProviders';
+import useAppState from '@shell/providers/useAppState';
+import Routes from '@shell/navigation/routes';
+import { useAppTheme } from '@shared/theme';
+import { useI18n } from '@shared/i18n';
+
+function RootNavigator() {
+  const { colors, resolvedMode, ready: themeReady } = useAppTheme();
+  const { ready: languageReady } = useI18n();
+  const { hydrated, isAuthenticated, termsPending, activeEmergency } = useAppState();
+  const segments = useSegments();
+  const router = useRouter();
+  useEffect(() => {
+    if (!hydrated || !themeReady || !languageReady) return;
+    const root = segments[0];
+    const currentPath = segments.join('/');
+    const emergencyContext =
+      currentPath === 'evidence/capture' ||
+      currentPath === 'emergency/active' ||
+      currentPath.startsWith('emergency/chat');
+    const onTerms = currentPath === 'auth/terms';
+    if (isAuthenticated && termsPending && !onTerms) {
+      router.replace(Routes.terms);
+      return;
+    }
+    if (activeEmergency && !emergencyContext && !termsPending) {
+      router.replace(Routes.activeEmergency);
+      return;
+    }
+    if (!isAuthenticated && root !== 'auth') {
+      router.replace(Routes.login);
+    }
+    if (isAuthenticated && !termsPending && root === 'auth')
+      router.replace(activeEmergency ? Routes.activeEmergency : Routes.home);
+  }, [
+    activeEmergency,
+    hydrated,
+    languageReady,
+    router,
+    segments,
+    isAuthenticated,
+    termsPending,
+    themeReady,
+  ]);
+  return (
+    <>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: colors.background },
+        }}
+      >
+        <Stack.Screen name="index" />
+        <Stack.Screen name="auth" />
+        <Stack.Screen name="tabs" />
+        <Stack.Screen
+          name="emergency/active"
+          options={{ gestureEnabled: false }}
+        />
+      </Stack>
+      {isAuthenticated && !termsPending && !activeEmergency ? <ContactAlertNotice /> : null}
+      <StatusBar style={resolvedMode === 'dark' ? 'light' : 'dark'} />
+    </>
+  );
+}
+export default function RootLayout() {
+  return (
+    <AppProviders>
+      <RootNavigator />
+    </AppProviders>
+  );
+}

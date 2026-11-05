@@ -1,0 +1,162 @@
+import { apiErrorMessage } from './apiErrorMessage';
+import appConfig from '@core/config/appConfig';
+
+export type ApiFieldErrors = Record<string, string>;
+
+export class ApiError extends Error {
+  constructor(message: string, readonly code: string, readonly status?: number, readonly fields: ApiFieldErrors = {}, readonly requestId?: string) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
+type Method = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
+type RequestOptions = { method?: Method; body?: unknown; authenticated?: boolean; retrying?: boolean; retryOnUnauthorized?: boolean; headers?: Record<string, string> };
+type BackendError = { code?: string; message?: string; requestId?: string; fields?: { field?: string; message?: string }[] | Record<string, string> };
+const TIMEOUT_MS = 15_000;
+const FILE_UPLOAD_TIMEOUT_MS = 30_000;
+
+// Centraliza las solicitudes móviles, los errores de interfaz y la renovación coordinada de sesión.
+class ApiClient {
+  private accessToken: string | null = null;
+  private refreshSession: (() => Promise<boolean>) | null = null;
+  private invalidateSession: (() => void) | null = null;
+  private refreshInFlight: Promise<boolean> | null = null;
+
+  setAccessToken(accessToken: string | null) { this.accessToken = accessToken; }
+  getAccessToken() { return this.accessToken; }
+  hasAccessToken() { return this.accessToken !== null; }
+  refreshAccessToken() { return this.coordinatedRefresh(); }
+  invalidateAuthenticatedSession() { this.invalidateSession?.(); }
+  configureSession(options: { refreshSession: () => Promise<boolean>; invalidateSession: () => void }) {
+    this.refreshSession = options.refreshSession;
+    this.invalidateSession = options.invalidateSession;
+  }
+
+  async request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+    if (!appConfig.apiBaseUrl) throw new ApiError('El servicio no está disponible. Inténtalo de nuevo más tarde.', 'CONFIGURATION_ERROR');
+    const method = options.method ?? 'GET';
+    const authenticated = options.authenticated ?? true;
+    const requestId = createRequestId();
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    try {
+      const response = await fetch(`${appConfig.apiBaseUrl.replace(/\/$/, '')}${path}`, {
+        method,
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          'X-Request-Id': requestId,
+          ...options.headers,
+          ...(authenticated && this.accessToken ? { Authorization: `Bearer ${this.accessToken}` } : {}),
+        },
+        body: options.body === undefined ? undefined : JSON.stringify(options.body), signal: controller.signal,
+      });
+      const payload = await readPayload(response);
+      if (response.status === 401 && authenticated && !options.retrying) {
+        // Solo las lecturas y operaciones explícitamente seguras se reintentan tras un 401.
+        const canRetry = (method === 'GET' || options.retryOnUnauthorized === true) && (await this.coordinatedRefresh());
+        if (canRetry) return this.request<T>(path, { ...options, retrying: true });
+        this.invalidateSession?.();
+      }
+      if (!response.ok) throw toApiError(payload, response.status, response.headers.get('X-Request-Id') ?? requestId, path);
+      return payload as T;
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      const timedOut = error instanceof Error && error.name === 'AbortError';
+      throw new ApiError(timedOut ? 'La solicitud tardó demasiado. Verifica tu conexión e inténtalo nuevamente.' : 'No fue posible conectar con el servicio. Verifica tu conexión e inténtalo nuevamente.', timedOut ? 'REQUEST_TIMEOUT' : 'NETWORK_ERROR');
+    } finally { clearTimeout(timeout); }
+  }
+
+  // Envía archivos sin fijar Content-Type: fetch añade el delimitador multipart correspondiente.
+  async requestMultipart<T>(path: string, formData: FormData): Promise<T> {
+    if (!appConfig.apiBaseUrl) throw new ApiError('El servicio no está disponible. Inténtalo de nuevo más tarde.', 'CONFIGURATION_ERROR');
+    const requestId = createRequestId();
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), FILE_UPLOAD_TIMEOUT_MS);
+    try {
+      const response = await fetch(`${appConfig.apiBaseUrl.replace(/\/$/, '')}${path}`, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'X-Request-Id': requestId,
+          ...(this.accessToken ? { Authorization: `Bearer ${this.accessToken}` } : {}),
+        },
+        body: formData,
+        signal: controller.signal,
+      });
+      const payload = await readPayload(response);
+      if (response.status === 401) {
+        // Renueva la sesión, pero deja el reintento de esta carga en manos del usuario.
+        const refreshed = await this.coordinatedRefresh();
+        if (!refreshed) this.invalidateSession?.();
+      }
+      if (!response.ok) throw toApiError(payload, response.status, response.headers.get('X-Request-Id') ?? requestId, path);
+      return payload as T;
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      const timedOut = error instanceof Error && error.name === 'AbortError';
+      // No registra URI, imagen ni credenciales; distingue fallo nativo de timeout en Metro.
+      console.warn('[evidence-upload]', timedOut ? 'timeout' : 'transport-error', error instanceof Error ? error.name : typeof error);
+      throw new ApiError(timedOut ? 'La carga tardó demasiado. Inténtalo nuevamente.' : 'No fue posible conectar con el servicio. Inténtalo nuevamente.', timedOut ? 'REQUEST_TIMEOUT' : 'NETWORK_ERROR');
+    } finally { clearTimeout(timeout); }
+  }
+
+  async requestBlob(path: string, retrying = false): Promise<Blob> {
+    if (!appConfig.apiBaseUrl) throw new ApiError('El servicio no está disponible. Inténtalo de nuevo más tarde.', 'CONFIGURATION_ERROR');
+    const requestId = createRequestId();
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    try {
+      const response = await fetch(`${appConfig.apiBaseUrl.replace(/\/$/, '')}${path}`, {
+        headers: {
+          Accept: 'image/webp',
+          'X-Request-Id': requestId,
+          ...(this.accessToken ? { Authorization: `Bearer ${this.accessToken}` } : {}),
+        },
+        signal: controller.signal,
+      });
+      if (response.status === 401 && !retrying && await this.coordinatedRefresh()) return this.requestBlob(path, true);
+      if (!response.ok) {
+        const payload = await readPayload(response);
+        if (response.status === 401) this.invalidateSession?.();
+        throw toApiError(payload, response.status, response.headers.get('X-Request-Id') ?? requestId, path);
+      }
+      return response.blob();
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      const timedOut = error instanceof Error && error.name === 'AbortError';
+      throw new ApiError(timedOut ? 'La descarga tardó demasiado. Inténtalo nuevamente.' : 'No fue posible descargar la fotografía. Inténtalo nuevamente.', timedOut ? 'REQUEST_TIMEOUT' : 'NETWORK_ERROR');
+    } finally { clearTimeout(timeout); }
+  }
+
+  // Comparte una promesa entre solicitudes simultáneas para no rotar varias veces el mismo token.
+  private async coordinatedRefresh() {
+    if (!this.refreshSession) return false;
+    if (!this.refreshInFlight) {
+      this.refreshInFlight = this.refreshSession().finally(() => {
+        this.refreshInFlight = null;
+      });
+    }
+    return this.refreshInFlight;
+  }
+}
+
+async function readPayload(response: Response): Promise<unknown> {
+  if (response.status === 204) return undefined;
+  const text = await response.text();
+  if (!text) return undefined;
+  try { return JSON.parse(text) as unknown; } catch { return undefined; }
+}
+
+function toApiError(payload: unknown, status: number, fallbackRequestId: string, path: string) {
+  const error = (payload ?? {}) as BackendError;
+  const fields = Array.isArray(error.fields) ? Object.fromEntries(error.fields.filter((item) => item.field && item.message).map((item) => [item.field as string, item.message as string])) : (error.fields ?? {});
+  // Mantiene los campos señalados por el servidor y sustituye sus textos por mensajes de interfaz.
+  const safeFields = Object.fromEntries(Object.keys(fields).map((field) => [field, error.code === 'REGISTRATION_DUPLICATE' ? 'Este dato ya está registrado. Usa otro o inicia sesión.' : 'Revisa este dato e inténtalo de nuevo.']));
+  return new ApiError(apiErrorMessage(error.code ?? '', status, path), error.code ?? `HTTP_${status}`, status, safeFields, error.requestId ?? fallbackRequestId);
+}
+
+function createRequestId() { return `mobile-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`; }
+
+export const apiClient = new ApiClient();
